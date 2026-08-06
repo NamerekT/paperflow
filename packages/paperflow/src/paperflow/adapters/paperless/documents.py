@@ -1,5 +1,3 @@
-"""Fetching, uploading and editing documents."""
-
 import logging
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -14,8 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class PaperlessDocuments:
-    """Document CRUD, downloads, uploads and in-place page edits."""
-
     def __init__(self, transport: PaperlessTransport, tasks: PaperlessTasks) -> None:
         self._transport = transport
         self._tasks = tasks
@@ -159,18 +155,18 @@ class PaperlessDocuments:
         """Rotate specific pages of a stored document, in place.
 
         Uses the edit endpoint rather than the rotate one, which only turns an
-        entire document by a single angle. `update_document` keeps the same
+        entire document by a single angle; `update_document` keeps the same
         document id and history instead of producing a second copy.
 
         `page_rotations` maps a 1-based page number to degrees clockwise, and
         the value is a RELATIVE correction - "turn it a further X" - not an
-        absolute page rotation. Confirmed empirically: a page stored at 90 sent
-        a rotation of 270 ended up at 0, which is 90 + 270 modulo 360, and
-        rendered upright.
+        absolute rotation, unlike `fitz.Page.set_rotation()`. Confirmed
+        empirically: a page stored at 90 sent a rotation of 270 ended up at 0
+        (90 + 270 mod 360), rendered upright.
 
-        Asynchronous, like uploading. Waiting for the task matters here: the
-        archive may still be rebuilding the file, and a metadata write racing
-        that rebuild is how content gets overwritten.
+        Asynchronous, like uploading. Waiting for the task matters: the archive
+        may still be rebuilding the file, and a metadata write racing that
+        rebuild is how content gets overwritten.
         """
         operations = [
             {"page": page, "rotate": degrees}

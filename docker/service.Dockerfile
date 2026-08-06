@@ -36,11 +36,8 @@ COPY packages/paperflow/ ./packages/paperflow/
 RUN pip install --no-cache-dir ./packages/docflow-core "./packages/paperflow[service]"
 
 ENV PYTHONUNBUFFERED=1
-# See docsorter_common/config.py's PROJECT_ROOT mine, ported: these two used to be
-# derived implicitly from the module's own file location, which happened to equal /app
-# only because of where the old code was rooted in the image. Moving to a src/ layout
-# would have silently repointed them at /app/src/paperflow/... with no error anywhere -
-# so both are now explicit rather than derived.
+# Explicit rather than derived from the package's own file location - a src/ layout
+# would otherwise silently repoint them at /app/src/paperflow/... with no error anywhere.
 ENV PAPERFLOW_CREDENTIALS_DIR=/app/credentials
 ENV PAPERFLOW_FAMILY_MEMBERS_FILE=/app/family_members.json
 # WEBHOOK_SHARED_SECRET, PAPERLESS_API_TOKEN, LLM_API_KEY and the rest of the secrets are

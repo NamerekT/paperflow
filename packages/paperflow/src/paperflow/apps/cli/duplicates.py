@@ -15,8 +15,8 @@ re-learn these the hard way a second time:
      duplicate in the archive is a RESCAN of the same document - different bytes, same
      meaning - not an identical file.
   3. perceptual hash (phash) of the whole page - a real run against the archive
-     produced two failures at once: a false negative (id 55/56 - literally the same VHS
-     letter, differing in one word, "Valentyn"/"Valentyna" - not caught), and a false
+     produced two failures at once: a false negative (id 55/56 - literally the same
+     letter, differing in one word, "Ivan"/"Ivanna" - not caught), and a false
      positive (25 entirely different Jobcenter/Familienkasse letters - different sums,
      dates, recipients - merged into one group, because German official letters from
      one office share almost the same layout/letterhead, and a whole-page phash sees

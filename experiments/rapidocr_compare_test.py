@@ -45,7 +45,7 @@ except ImportError:
     LangRec = OCRVersion = ModelType = None
 
 # Secrets come from the environment only — see .env.example in the project root.
-PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
+PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.example.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 OCR_RENDER_DPI      = 200
 

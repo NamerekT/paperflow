@@ -29,8 +29,6 @@ class ContentSource(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class OcrLine:
-    """One recognised line and how sure the engine is about it."""
-
     text: str
     score: float
 
@@ -55,11 +53,7 @@ class PageStats:
 
 @dataclass(frozen=True, slots=True)
 class PageReport:
-    """What happened to one page, for the per-document audit trail.
-
-    Replaces a positional `tuple[int, str, float, float]` that was unpacked by
-    index at the one place that consumed it.
-    """
+    """Per-page audit trail entry; replaces a positional tuple that used to be unpacked by index."""
 
     page: int  # 1-based, as printed to the user
     source: str  # "RapidOCR" | "Native PDF" | "Gemma 31B (LiteLLM: ...)"
@@ -69,8 +63,6 @@ class PageReport:
 
 @dataclass(frozen=True, slots=True)
 class CascadeResult:
-    """Text extraction outcome for a whole document."""
-
     content: str
     content_by: ContentSource
     #: Per-page attribution, set only when `content_by` is MIXED - some pages
@@ -109,11 +101,7 @@ class DocumentClassification:
 
 @dataclass(frozen=True, slots=True)
 class DocumentAnalysis:
-    """Everything the engine has to say about one document.
-
-    The complete output of `docflow.pipeline.document_workflow`: text, where
-    it came from, what the document is, and when it must be answered.
-    """
+    """Complete output of `docflow.pipeline.document_workflow`."""
 
     cascade: CascadeResult
     classification: DocumentClassification

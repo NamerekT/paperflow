@@ -33,8 +33,6 @@ class GoogleTasksUnavailable(PaperflowError):
 
 
 class GoogleTasks:
-    """Creates a reminder for a Frist deadline."""
-
     def __init__(self, settings: GoogleTasksSettings) -> None:
         self._settings = settings
         self._token_file = settings.credentials_dir / "token.json"

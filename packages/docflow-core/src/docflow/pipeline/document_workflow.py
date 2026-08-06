@@ -20,8 +20,6 @@ from docflow.ports.taxonomy import TaxonomySource
 
 
 class DocumentWorkflow:
-    """Runs the whole engine over one PDF file."""
-
     def __init__(
         self,
         opener: PdfOpener,

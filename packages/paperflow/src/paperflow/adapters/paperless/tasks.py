@@ -1,5 +1,3 @@
-"""Waiting for Paperless background tasks."""
-
 import logging
 import time
 from typing import Any
@@ -11,8 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class PaperlessTasks:
-    """Polls /api/tasks/ until a consume or edit job finishes."""
-
     def __init__(self, transport: PaperlessTransport, *, poll_interval: float = 3.0) -> None:
         self._transport = transport
         self._poll_interval = poll_interval

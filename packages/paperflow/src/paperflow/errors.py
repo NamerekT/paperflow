@@ -4,15 +4,15 @@ from docflow.errors import DocflowError
 
 
 class PaperflowError(Exception):
-    """Base class for every error this package raises on purpose."""
+    pass
 
 
 class PaperlessError(PaperflowError):
-    """The archive could not do what was asked."""
+    pass
 
 
 class PaperlessUnavailable(PaperlessError):
-    """The archive could not be reached."""
+    pass
 
 
 class TaxonomyUnavailable(PaperlessError):
@@ -27,12 +27,10 @@ class TaxonomyUnavailable(PaperlessError):
 
 
 class TaskTimeout(PaperlessError):
-    """A background task did not finish in time."""
+    pass
 
 
 class TaskFailed(PaperlessError):
-    """A background task finished unsuccessfully."""
-
     def __init__(self, message: str, detail: str | None = None) -> None:
         super().__init__(message)
         self.detail = detail

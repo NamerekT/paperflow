@@ -1,5 +1,3 @@
-"""The custom-field schema and its values."""
-
 import logging
 from typing import Any
 
@@ -11,8 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class PaperlessCustomFields:
-    """Ensures the fields exist, and reads and writes their values."""
-
     def __init__(self, transport: PaperlessTransport) -> None:
         self._transport = transport
 
@@ -106,7 +102,6 @@ class PaperlessCustomFields:
 
     @staticmethod
     def value_on(document: dict[str, Any], field_id: int) -> Any:
-        """The value of one field on a fetched document, or None."""
         for entry in document.get("custom_fields") or []:
             if entry.get("field") == field_id:
                 return entry.get("value")

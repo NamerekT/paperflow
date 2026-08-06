@@ -22,7 +22,7 @@ from docflow.errors import DocflowError
 
 
 class LlmError(DocflowError):
-    """Base class for every failure of a model call."""
+    pass
 
 
 class LlmTimeout(LlmError):
@@ -36,7 +36,7 @@ class LlmTimeout(LlmError):
 
 
 class LlmUnavailable(LlmError):
-    """The gateway could not be reached at all."""
+    pass
 
 
 class LlmRateLimited(LlmError):
@@ -138,8 +138,6 @@ class LlmResponse:
 
 
 class LlmClient(Protocol):
-    """A chat-completion gateway."""
-
     def complete(
         self, request: LlmRequest, *, timeout: float, retry: RetryPolicy
     ) -> LlmResponse:

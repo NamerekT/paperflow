@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # on the page. The German ones stay German, and the Ukrainian and Russian ones
 # stay as they are too - the archive is trilingual, and a letter from a Ukrainian
 # institution states its deadline in Ukrainian.
-PROMPT_SYSTEM = """You help a migrant family in Germany not to miss deadlines \
+PROMPT_SYSTEM = """You help a household in Germany not to miss deadlines \
 (Fristen) in official letters (Jobcenter, Familienkasse, Agentur für Arbeit, a \
 bank, a landlord and so on).
 
@@ -59,8 +59,6 @@ Answer STRICTLY as JSON, with no markdown and no explanation:
 
 
 class FristTask(LlmTask):
-    """Extracts a deadline from document text."""
-
     def __init__(
         self,
         client: LlmClient,

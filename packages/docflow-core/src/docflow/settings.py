@@ -187,8 +187,6 @@ class LlmSettings:
 
 @dataclass(frozen=True, slots=True)
 class CascadeSettings:
-    """How pages are rendered and when they are escalated."""
-
     #: One value for the whole engine. It used to be 300 at the call site and
     #: 200 in the OCR engine's own default, which meant the number that
     #: actually applied depended on which constructor argument was passed.

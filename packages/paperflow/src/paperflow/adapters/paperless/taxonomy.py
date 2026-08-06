@@ -1,5 +1,3 @@
-"""Tags, correspondents and document types."""
-
 import logging
 from typing import Any
 

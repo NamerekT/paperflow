@@ -1,5 +1,3 @@
-"""Shared plumbing for the model tasks."""
-
 from typing import Any
 
 from docflow.ports.llm import LlmClient, LlmRequest
@@ -7,8 +5,6 @@ from docflow.settings import LlmTaskConfig
 
 
 class LlmTask:
-    """A model call with its own model, temperature and retry budget."""
-
     def __init__(self, client: LlmClient, config: LlmTaskConfig) -> None:
         self._client = client
         self._config = config
@@ -39,7 +35,6 @@ class LlmTask:
 
     @staticmethod
     def image_message(prompt: str, image_b64: str) -> dict[str, Any]:
-        """A single user turn carrying a prompt and one JPEG."""
         return {
             "role": "user",
             "content": [

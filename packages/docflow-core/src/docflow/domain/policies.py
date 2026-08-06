@@ -11,8 +11,6 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class RetryPolicy:
-    """How hard to try before giving up on a model call."""
-
     attempts: int
 
     #: Linear, not exponential: the upstream is a self-hosted proxy fronting
@@ -25,15 +23,9 @@ class RetryPolicy:
     #: statement about a quota window, not a transient blip.
     rate_limit_seconds: float = 10.0
 
-    #: Whether to sleep after a timeout.
-    #:
-    #: Off by default, and that is not an oversight. A request that timed out
-    #: has already consumed its full timeout - 90 to 180 seconds for the
-    #: vision calls - so the wait has happened. Sleeping again on top of it
-    #: was measured to make a slow-provider episode take twice as long for no
-    #: gain. The four hand-written retry loops this policy replaces all
-    #: `continue`d straight through on timeout, and that behaviour is
-    #: preserved deliberately.
+    #: Off by default, deliberately: a timed-out request already waited its
+    #: full timeout (90-180s for vision calls), so sleeping again on top of it
+    #: was measured to double a slow-provider episode for no gain.
     sleep_after_timeout: bool = False
 
     def __post_init__(self) -> None:
@@ -66,33 +58,20 @@ class NativeTextConfig:
 
 @dataclass(frozen=True, slots=True)
 class EscalationPolicy:
-    """When a locally recognised page is not good enough to keep.
+    """Thresholds below which a locally-recognised page is escalated to the vision model.
 
-    History of the threshold, because the number looks arbitrary and is not:
-
-    It started at 0.80. A real document (a Diplomsupplement grade table, mixed
-    Cyrillic, Latin and digits in short cells) scored mean 0.938 and p10 0.834
-    - comfortably above that threshold - while the text itself was badly
-    wrong: "82/B/ope/Good" for "82/B/Good", "poepayeann a Pyihon" for
-    "Programming Python". Confident and incorrect at the same time, which is
-    the failure mode local OCR cannot self-report.
-
-    Raised to 0.85, then to 0.90 after a full run showed that at 0.85 nearly
-    everything escalated anyway, and the handful of pages that did not were
-    themselves poor. Below 0.95 the local engine was not reliably right on
-    anything, so there was no value in a lower bar.
+    The 0.95 default is not arbitrary: at 0.80, a real Diplomsupplement grade
+    table (mixed Cyrillic/Latin/digits) scored mean 0.938 / p10 0.834 -
+    comfortably above threshold - while the text was badly wrong ("82/B/ope/Good"
+    for "82/B/Good"): confident and incorrect at once, which local OCR cannot
+    self-report. Raised to 0.85 then 0.90 still let poor pages through; below
+    0.95 the local engine was not reliably right on anything.
     """
 
     mean: float = 0.95
     p10: float = 0.95
 
     def should_escalate(self, mean: float, p10: float) -> bool:
-        """True when a page must go to the vision model.
-
-        A page with no recognised lines gives NaN for both statistics; every
-        comparison against NaN is False, so the explicit check below is what
-        makes an empty page escalate rather than silently pass.
-        """
         if mean != mean or p10 != p10:  # NaN: no lines were recognised at all
             return True
         return mean < self.mean or p10 < self.p10

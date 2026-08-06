@@ -21,6 +21,5 @@ TAG_COLOR_PALETTE = (
 
 
 def tag_color_for_name(name: str) -> str:
-    """Return the palette colour this tag name always maps to."""
     digest = hashlib.md5(name.strip().lower().encode("utf-8")).hexdigest()
     return TAG_COLOR_PALETTE[int(digest, 16) % len(TAG_COLOR_PALETTE)]

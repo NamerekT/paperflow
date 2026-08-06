@@ -22,8 +22,6 @@ import requests
 
 
 class DeadlinePoster:
-    """Issues POSTs whose total wait is bounded by wall-clock time."""
-
     def __init__(self, *, max_workers: int = 4, session: requests.Session | None = None) -> None:
         self._pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="llm-http"

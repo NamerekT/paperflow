@@ -1,10 +1,10 @@
 """`FitzDocument`/`FitzPageHandle` against real files - the one place PyMuPDF itself is
 exercised, rather than a fake `PageHandle`.
 
-`EK Valentyna Tymchenko (Printed to PDF).pdf` is the actual document behind the
-motivating story in `docflow.pipeline.native_text`: a scan that was printed to PDF and
-gained a text layer that is not genuine digital text but somebody else's OCR output. Its
-image coverage is why the check exists.
+`sample_scan_printed_to_pdf.pdf` is the actual document behind the motivating story in
+`docflow.pipeline.native_text`: a scan that was printed to PDF and gained a text layer
+that is not genuine digital text but somebody else's OCR output. Its image coverage is
+why the check exists.
 """
 
 from pathlib import Path
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_a_printed_to_pdf_scan_is_not_trusted_as_native_text():
-    doc = FitzOpener().open(DATA / "EK Valentyna Tymchenko (Printed to PDF).pdf")
+    doc = FitzOpener().open(DATA / "sample_scan_printed_to_pdf.pdf")
     try:
         assert doc.page_count == 4
         # Page 1 carries a text layer (someone else's OCR), but the page is still, in
@@ -43,7 +43,7 @@ def test_a_printed_to_pdf_scan_is_not_trusted_as_native_text():
 
 
 def test_the_same_scan_without_the_ocr_layer_is_also_not_native():
-    doc = FitzOpener().open(DATA / "EK Valentyna Tymchenko.pdf")
+    doc = FitzOpener().open(DATA / "sample_scan.pdf")
     try:
         assert is_native_text_document(doc, CONFIG) is False
     finally:

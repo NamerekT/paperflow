@@ -41,7 +41,7 @@ HOW THIS IS BUILT (matters since this runs over a large number of files):
 
 USAGE:
     python rapidocr_confidence_calibration.py
-    python rapidocr_confidence_calibration.py --scan-folder "D:\Доки доки\Docs Germany"
+    python rapidocr_confidence_calibration.py --scan-folder "D:\Documents\Unsorted scans"
     python rapidocr_confidence_calibration.py --workers 8
 
     (--workers defaults to number of cores minus 2, but never less than 1)
@@ -85,7 +85,7 @@ RESULTS_JSONL = RESULTS_DIR / "calibration_results.jsonl"
 SUMMARY_TXT   = RESULTS_DIR / "calibration_summary.txt"
 
 # Secrets come from the environment only — see .env.example in the project root.
-PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
+PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.example.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 OCR_RENDER_DPI      = 300
 

@@ -1,5 +1,3 @@
-"""Console setup shared by the CLI tools."""
-
 import sys
 
 from paperflow.i18n import set_locale

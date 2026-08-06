@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 class ScanQueue:
-    """Moves accepted scans into a numbered queue folder and lists what is waiting."""
-
     def __init__(self, settings: WatcherSettings) -> None:
         self._settings = settings
         #: Guards the read-max-then-write-next sequence in `enqueue` - two scans

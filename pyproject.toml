@@ -13,17 +13,10 @@
 line-length = 100
 target-version = "py311"
 
-# The legacy tree is excluded, not fixed: every path listed here is deleted or
-# rewritten before the migration ends, and each file rejoins the linter as it
-# moves into packages/. Linting code that is on its way out would produce a
-# large diff that has to be reviewed and then thrown away.
 extend-exclude = [
-    "docsorter_common",
-    "ocr_webhook_service",
+    # A 3-line shim kept only until the Task Scheduler entry that launches it
+    # is switched to `python -m paperflow.apps.watcher` (final cleanup step).
     "DocSorter.py",
-    "find_duplicates.py",
-    "trigger_missing_cascade.py",
-    "set_tag_colors.py",
     # Diagnostic scripts. Kept as an archive of what was measured; not
     # production code and not held to its standards.
     "experiments",

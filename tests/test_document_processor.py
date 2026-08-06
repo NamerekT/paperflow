@@ -50,10 +50,10 @@ def make_analysis(*, frist=None, page_rotations=None, mixed_by=None) -> Document
     )
     classification = DocumentClassification(
         title="Bescheid Januar 2026",
-        correspondent="Jobcenter Wesel",
+        correspondent="Jobcenter Musterstadt",
         document_type="Bescheid",
-        tags=("Bürgergeld", "Personal", "Mykolai"),
-        family_member="Mykolai",
+        tags=("Bürgergeld", "Personal", "Sample"),
+        family_member="Sample",
         date=date(2026, 1, 15),
     )
     return DocumentAnalysis(cascade=cascade, classification=classification, frist=frist)
@@ -198,7 +198,7 @@ def test_happy_path_writes_content_classification_and_cascade_fields(tmp_path):
     assert payload["created"] == "2026-01-15"
     # correspondent/document_type/tags all resolved through the taxonomy fake
     assert payload["correspondent"] == parts["taxonomy"].get_or_create_id(
-        "correspondents", "Jobcenter Wesel"
+        "correspondents", "Jobcenter Musterstadt"
     )
     assert len(payload["tags"]) == 3
     field_ids = {value.field for value in values}

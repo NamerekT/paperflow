@@ -47,7 +47,7 @@ RESULTS_DIR = Path(__file__).resolve().parent / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 
 # Secrets come from the environment only — see .env.example in the project root.
-PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
+PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.example.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

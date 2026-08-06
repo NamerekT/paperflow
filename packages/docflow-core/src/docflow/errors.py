@@ -7,7 +7,7 @@ from a genuine bug in its own code with a single `except`.
 
 
 class DocflowError(Exception):
-    """Base class for every error the engine raises on purpose."""
+    pass
 
 
 class ConfigError(DocflowError):

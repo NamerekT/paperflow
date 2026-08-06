@@ -1,8 +1,8 @@
 """What the archive already contains.
 
 The classifier needs to know which tags, correspondents and document types
-exist, so that it reuses "Jobcenter Wesel" instead of inventing
-"Jobcenter-Wesel" beside it. That is the whole of the engine's interest in the
+exist, so that it reuses "Jobcenter Musterstadt" instead of inventing
+"Jobcenter-Musterstadt" beside it. That is the whole of the engine's interest in the
 archive: a list of names in, a set of names out. Resolving those names to rows
 in somebody's database is the adapter's problem.
 
@@ -16,8 +16,6 @@ from typing import Protocol
 
 @dataclass(frozen=True, slots=True)
 class TaxonomySnapshot:
-    """The names currently in use in the archive."""
-
     tags: tuple[str, ...] = ()
     correspondents: tuple[str, ...] = ()
     document_types: tuple[str, ...] = ()
@@ -53,8 +51,6 @@ class ClassificationFallback:
 
 @dataclass(frozen=True, slots=True)
 class ClassifierPolicy:
-    """The classifier's non-prompt rules."""
-
     #: Names the model must choose exactly one of.
     family_members: tuple[str, ...]
 

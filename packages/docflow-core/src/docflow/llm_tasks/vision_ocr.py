@@ -57,8 +57,6 @@ PROMPT_VISION = (
 
 
 class VisionOcrTask(LlmTask):
-    """Reads one rendered page with a vision model."""
-
     def transcribe(self, image_b64: str) -> tuple[str, str]:
         """Return the page text and a label saying who produced it.
 

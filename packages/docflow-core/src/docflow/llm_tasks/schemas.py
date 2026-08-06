@@ -18,8 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class OrientationDraft(BaseModel):
-    """How far the page must be turned, clockwise."""
-
     model_config = ConfigDict(extra="ignore")
 
     rotate: int = Field(default=0)
@@ -35,8 +33,6 @@ class OrientationDraft(BaseModel):
 
 
 class FristDraft(BaseModel):
-    """The deadline found in a letter, if there was one."""
-
     model_config = ConfigDict(extra="ignore")
 
     #: None is the common case, not a failure: most documents carry no
@@ -45,12 +41,7 @@ class FristDraft(BaseModel):
 
 
 class ClassificationDraft(BaseModel):
-    """What the model thinks the document is.
-
-    Every field is optional. A reply that is missing one is still worth using
-    for the fields it does have, and the caller substitutes its own fallback
-    for the rest.
-    """
+    """Every field optional: a reply missing one is still used for the fields it does have."""
 
     model_config = ConfigDict(extra="ignore")
 

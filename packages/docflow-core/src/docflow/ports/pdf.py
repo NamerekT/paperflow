@@ -16,9 +16,7 @@ if TYPE_CHECKING:
 
 
 class PageHandle(Protocol):
-    """One page of an open PDF document, numbered 1-based as it is shown to a user."""
-
-    number: int
+    number: int  # 1-based, as shown to a user
 
     @property
     def rotation(self) -> int:
@@ -56,17 +54,15 @@ class PageHandle(Protocol):
         ...
 
     def render_jpeg_b64(self, *, dpi: int, quality: int) -> str:
-        """Render the page to a base64-encoded JPEG, for a vision model call."""
+        """For a vision model call."""
         ...
 
     def render_bgr(self, *, dpi: int) -> "np.ndarray":
-        """Render the page to a BGR array, for a local OCR engine."""
+        """For a local OCR engine."""
         ...
 
 
 class PdfDocument(Protocol):
-    """An open PDF document."""
-
     @property
     def page_count(self) -> int: ...
 
@@ -83,6 +79,4 @@ class PdfDocument(Protocol):
 
 
 class PdfOpener(Protocol):
-    """Opens a PDF file from disk."""
-
     def open(self, path: str | Path) -> PdfDocument: ...

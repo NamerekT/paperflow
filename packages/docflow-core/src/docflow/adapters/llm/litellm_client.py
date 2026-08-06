@@ -97,7 +97,6 @@ class LiteLlmClient:
     # ── one attempt ───────────────────────────────────────────────────────
 
     def _post(self, payload: dict[str, Any], *, timeout: float) -> requests.Response:
-        """Issue one request, translating transport failures into LlmErrors."""
         try:
             response = self._poster.post(
                 self._endpoint,
@@ -170,7 +169,6 @@ class LiteLlmClient:
     def _wait_before_retry(
         self, error: LlmError, attempt: int, retry: RetryPolicy, model: str
     ) -> None:
-        """Log the failure and sleep for however long this kind warrants."""
         if isinstance(error, LlmRateLimited):
             delay = error.retry_after or retry.rate_limit_seconds * attempt
         elif isinstance(error, LlmTimeout):

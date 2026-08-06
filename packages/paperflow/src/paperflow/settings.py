@@ -88,8 +88,6 @@ class PaperlessSettings:
 
 @dataclass(frozen=True, slots=True)
 class WatcherSettings:
-    """The scanner-output folder daemon."""
-
     watch_folder: Path
     log_file: Path
 
@@ -130,8 +128,6 @@ class WatcherSettings:
 
 @dataclass(frozen=True, slots=True)
 class ServiceSettings:
-    """The webhook service Paperless calls."""
-
     #: Shared with the catch-up CLI, which authenticates to this service with
     #: it. No default: an unset secret must stop the process, because the
     #: endpoint's only protection is this token and starting without one would
@@ -190,8 +186,6 @@ class TriggerSettings:
 
 @dataclass(frozen=True, slots=True)
 class GoogleTasksSettings:
-    """Deadline reminders."""
-
     #: Holds client_secret*.json and, after a one-off consent run, token.json.
     #:
     #: Explicit rather than derived from the package location, and that is the
@@ -219,8 +213,6 @@ class GoogleTasksSettings:
 
 @dataclass(frozen=True, slots=True)
 class Settings:
-    """Everything one process needs, validated together."""
-
     paperless: PaperlessSettings
     google: GoogleTasksSettings
     family_members_file: Path

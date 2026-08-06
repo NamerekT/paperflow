@@ -36,8 +36,6 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentProcessor:
-    """Runs the engine over one archived document and writes the result back."""
-
     def __init__(
         self,
         workflow: DocumentWorkflow,

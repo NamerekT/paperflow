@@ -15,11 +15,6 @@ credentials/
 family_members.json
 .env
 
-# The old tree, on its way out - excluded from the new image's build context outright
-# rather than merely unused by it.
-docsorter_common/
-ocr_webhook_service/
-
 # Python/tooling caches, never useful inside an image.
 __pycache__/
 *.py[cod]

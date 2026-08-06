@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def build_system_prompt(
     snapshot: TaxonomySnapshot, family_members: tuple[str, ...], today: date
 ) -> str:
-    return f"""You are a document classifier for a Ukrainian migrant family in Germany.
+    return f"""You are a document classifier for a household's document archive in Germany.
 Documents are archived in a document management system instead of folders -
 your job is to assign metadata, not to pick a folder.
 
@@ -55,7 +55,7 @@ RESPONSE FORMAT (JSON only, no Markdown, no explanations):
 
 RULES:
 - correspondent: the organization/person who SENT the document (e.g.
-  "Jobcenter Wesel", "Agentur für Arbeit (Inkasso-Service)", "Familienkasse").
+  "Jobcenter Musterstadt", "Agentur für Arbeit (Inkasso-Service)", "Familienkasse").
   Be precise - German authorities that sound similar are often legally
   different institutions (Jobcenter != Agentur für Arbeit != Familienkasse !=
   Sozialamt). Never guess a "parent" institution name if the letterhead
@@ -81,14 +81,12 @@ RULES:
   household matter (rent, car registration) or you genuinely can't tell,
   use the shared-household name from FAMILY MEMBERS.
 - Prefer reusing an existing correspondent/document_type/tag over inventing
-  a near-duplicate (e.g. if "Jobcenter Wesel" exists, don't create
-  "Jobcenter-Wesel" or "jobcenter wesel").
+  a near-duplicate (e.g. if "Jobcenter Musterstadt" exists, don't create
+  "Jobcenter-Musterstadt" or "jobcenter musterstadt").
 - title: no file extension, no forbidden characters, max ~80 characters."""
 
 
 class ClassifyTask(LlmTask):
-    """Classifies document text into names."""
-
     def __init__(
         self,
         client: LlmClient,

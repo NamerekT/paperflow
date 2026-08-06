@@ -22,7 +22,7 @@ diagnosis is printed loudly — no need to wait out an actual hang/token
 limit manually to figure out what's happening.
 
 USAGE:
-    python gemma_stream_diagnose.py "D:\Доки доки\Docs Germany\Unsorted scans\queue\scan_0001.pdf" 2
+    python gemma_stream_diagnose.py "D:\Documents\Unsorted scans\Unsorted scans\queue\scan_0001.pdf" 2
     (path to the PDF, page number, 1-based)
 
     Optional:

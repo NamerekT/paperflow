@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class PaperlessTransport:
-    """Authenticated HTTP against one Paperless instance."""
-
     def __init__(self, settings: PaperlessSettings, *, session: requests.Session | None = None):
         self.settings = settings
         self.base_url = settings.url.rstrip("/")
@@ -77,7 +75,6 @@ class PaperlessTransport:
         absolute_url: str | None = None,
         **kwargs: Any,
     ) -> requests.Response:
-        """Issue one request and raise for a non-2xx status."""
         url = absolute_url or self.url_for(path)
         headers = {**self.headers(versioned=versioned), **kwargs.pop("headers", {})}
         try:
@@ -168,7 +165,6 @@ class PaperlessTransport:
         return version
 
     def document_url(self, doc_id: int) -> str:
-        """The human-facing URL, for notifications and reminders."""
         return f"{self.base_url}/documents/{doc_id}/details"
 
     def close(self) -> None:

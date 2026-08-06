@@ -14,12 +14,8 @@ from docflow.ports.pdf import PageHandle
 
 
 class PageOcr(Protocol):
-    """A local text recognition engine."""
-
     #: Attribution label for a page kept from this engine - goes into
     #: `PageReport.source` and, for an all-local document, into `ContentSource`.
     name: str
 
-    def read_lines(self, page: PageHandle, *, dpi: int) -> list[OcrLine]:
-        """Recognise `page`, one `OcrLine` per detected line of text."""
-        ...
+    def read_lines(self, page: PageHandle, *, dpi: int) -> list[OcrLine]: ...

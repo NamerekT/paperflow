@@ -14,7 +14,6 @@ _FENCES = ("```json", "```JSON", "```")
 
 
 def strip_json_fences(text: str) -> str:
-    """Remove a Markdown code fence wrapped around a JSON reply."""
     stripped = text.strip()
     for fence in _FENCES:
         if stripped.startswith(fence):
@@ -26,7 +25,6 @@ def strip_json_fences(text: str) -> str:
 
 
 def parse_json_payload(text: str) -> Any:
-    """Parse a model reply as JSON, tolerating a code fence around it."""
     raw = strip_json_fences(text)
     try:
         return json.loads(raw)

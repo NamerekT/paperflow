@@ -37,9 +37,7 @@ logger = logging.getLogger(__name__)
 
 #: Used only if family_members.json is missing or malformed - the process must not fail
 #: outright over a typo in a hand-edited config file, only warn loudly and carry on.
-_FAMILY_MEMBERS_FALLBACK = (
-    "Mykolai", "Valentyn", "Valentyna", "Dmytro", "Matvii", "Vira", "Familie",
-)
+_FAMILY_MEMBERS_FALLBACK = ("Familie",)
 
 
 def _load_family_members(path: Path) -> tuple[str, ...]:

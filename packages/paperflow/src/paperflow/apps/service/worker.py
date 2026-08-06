@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class QueueWorker:
-    """Consumes `(doc_id, force)` pairs strictly in the order they arrive."""
-
     def __init__(self, processor: DocumentProcessor, settings: ServiceSettings) -> None:
         self._processor = processor
         self._progress_path = settings.progress_path

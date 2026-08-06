@@ -39,8 +39,6 @@ PROMPT_ORIENTATION = (
 
 
 class OrientationTask(LlmTask):
-    """Detects how far a page must be turned clockwise."""
-
     def detect(self, image_b64: str) -> int:
         """Return 0, 90, 180 or 270.
 
