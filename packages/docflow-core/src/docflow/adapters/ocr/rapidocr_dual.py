@@ -11,12 +11,12 @@ about - see `_merge_best_per_line`.
 """
 
 import logging
-import os
 
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-
+# Deliberately not setting OMP_NUM_THREADS/OPENBLAS_NUM_THREADS/MKL_NUM_THREADS here:
+# they must exist before numpy or onnxruntime are first imported, which happens a few
+# lines below as a side effect of importing rapidocr. A library module is the wrong
+# place to decide that for the whole process - the application does, once, before this
+# module is ever imported. See `paperflow.runtime.limit_math_threads`.
 try:
     from rapidocr import LangRec, ModelType, OCRVersion, RapidOCR
 except ImportError:

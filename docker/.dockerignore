@@ -1,0 +1,33 @@
+# Applies to docker/service.Dockerfile's build context, which is the repository root.
+# Keeps large or irrelevant local state out of every build, rather than letting it ride
+# along on every `docker build` only to be unused.
+
+.git/
+.claude/
+
+# Diagnostic scripts and their data/output - not needed to run the service, and the
+# data/results subfolders alone have run to tens of megabytes locally. experiments/ is
+# the post-migration name (stage 9); test/ is today's.
+test/
+experiments/
+
+# Real personal data and secrets - never belongs in a build context, let alone an image
+# layer.
+credentials/
+family_members.json
+.env
+
+# The old tree, on its way out - excluded from the new image's build context outright
+# rather than merely unused by it.
+docsorter_common/
+ocr_webhook_service/
+
+# Python/tooling caches, never useful inside an image.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+tests/

@@ -53,6 +53,10 @@ known-first-party = ["docflow", "paperflow"]
 
 [tool.ruff.lint.per-file-ignores]
 "packages/paperflow/src/paperflow/apps/**" = ["TID251"]
+# uvicorn imports app.py directly - there is no main() of ours to call first - so
+# limit_math_threads() has to run at module scope before the imports that would
+# otherwise pull in numpy/onnxruntime as a side effect. See the module docstring.
+"packages/paperflow/src/paperflow/apps/service/app.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -83,6 +87,8 @@ module = [
     "imagehash.*",
     "googleapiclient.*",
     "google_auth_oauthlib.*",
+    "google.oauth2.*",
+    "google.auth.*",
 ]
 ignore_missing_imports = true
 

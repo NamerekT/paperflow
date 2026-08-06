@@ -14,6 +14,7 @@ get wrong in production:
 | `test_native_text.py` | Born-digital detection, against fake pages |
 | `test_cascade.py` | The OCR escalation cascade, against fake pages and tasks |
 | `test_fitz_document.py` | The same detection against real PyMuPDF - skipped unless `test/data/` is present locally |
+| `test_document_processor.py` | The download/engine/resolve/write cycle, against fake Paperless adapters |
 
 Run with `pytest` from the repository root.
 
