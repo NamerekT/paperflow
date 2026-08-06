@@ -39,6 +39,11 @@ ignore = [
     "G004",
 ]
 
+[tool.ruff.lint.isort]
+# Both distributions live in this repository; without this they are sorted in
+# with third-party packages and the import blocks churn between runs.
+known-first-party = ["docflow", "paperflow"]
+
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Logs are never localized. Only the app layer may reach for the catalog;
 # adapters, pipeline and llm_tasks emit English log records and nothing else.

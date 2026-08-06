@@ -7,7 +7,6 @@ field was verified by different code from the other five and could drift.
 """
 
 from docflow.domain.models import ContentSource
-
 from paperflow.domain import constants
 from paperflow.domain.models import CustomFieldSpec
 
