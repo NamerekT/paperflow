@@ -1,74 +1,83 @@
 """
 local_vision_ocr_test.py
 ────────────────────────────────────────────────────────────────────────────
-То же самое, что vision_ocr_test.py, но без OpenRouter/облака — гоняет
-vision-модель ЛОКАЛЬНО через Ollama на твоей RTX 5060. Ни лимитов, ни 429,
-ни зависаний на чужом бесплатном бэкенде — модель либо тянет твою видеокарту,
-либо нет, и это сразу видно.
+The same thing as vision_ocr_test.py, but without OpenRouter/the cloud —
+runs the vision model LOCALLY via Ollama on your RTX 5060. No limits, no
+429s, no hangs on someone else's free backend — the model either fits on
+your GPU or it doesn't, and you see that immediately.
 
-УСТАНОВКА (один раз):
-    1. Скачай и поставь Ollama: https://ollama.com/download/windows
-       (после установки в трее появится иконка — сервер слушает на
-       http://localhost:11434 сам по себе, отдельно запускать не нужно)
-    2. Скачай модель (несколько ГБ, один раз):
+INSTALLATION (one-time):
+    1. Download and install Ollama: https://ollama.com/download/windows
+       (after installation an icon appears in the tray — the server listens
+       on http://localhost:11434 on its own, no need to start it separately)
+    2. Download the model (a few GB, one-time):
            ollama pull qwen3-vl:8b
-       Это основной вариант. Проверил по независимым сравнениям OCR-точности
-       на кириллице: Qwen в них оказался лучшим по точности именно на
-       кириллическом тексте среди открытых моделей, Gemma заметно слабее
-       (~70% точности на кириллице в том же сравнении), а MiniCPM-V в целом
-       показал слабые результаты по OCR (я его раньше рекомендовал в первую
-       очередь — ошибся, понижаю приоритет). Для немецкого/латиницы Qwen
-       тоже без проблем — это одна из основных языков в его обучающих данных.
-       8B поместится в 8 ГБ VRAM RTX 5060 в квантованном виде.
+       This is the main option. Checked against independent OCR-accuracy
+       comparisons on Cyrillic: Qwen came out as the most accurate on
+       Cyrillic text among open models in those comparisons, Gemma is
+       noticeably weaker (~70% Cyrillic accuracy in the same comparison),
+       and MiniCPM-V overall showed weak OCR results (I recommended it as
+       the top choice earlier — that was a mistake, downgrading its
+       priority). For German/Latin script Qwen is also fine — it's one of
+       the major languages in its training data. The 8B model fits into
+       the RTX 5060's 8 GB VRAM in quantized form.
 
-    Альтернативы, если qwen3-vl не устроит по качеству или скорости:
-           ollama pull gemma4:12b            — сильнее Qwen по немецкому
-                                                (родной язык Google — one of
-                                                the best-covered), слабее по
-                                                украинскому (см. выше), но
-                                                всё ещё рабочий вариант
-           ollama pull glm-ocr                — 0.9B, 2.2 ГБ, ОЧЕНЬ быстрая,
-                                                #1 на бенчмарке OmniDocBench
-                                                (таблицы/печати/сложная
-                                                вёрстка), но тренирована с
-                                                акцентом на китайский/
-                                                английский — украинский под
-                                                вопросом
-           ollama pull maternion/lightonocr-2 — 1B, 1.5 ГБ, очень быстрая,
-                                                но заточена авторами (LightOn,
-                                                Франция) под французский и
-                                                научные статьи/LaTeX —
-                                                украинский тоже под вопросом
-           ollama pull deepseek-ocr           — 3B, 6.7 ГБ, общего назначения
-                                                OCR, охват кириллицы не
-                                                подтверждён
-           ollama pull minicpm-v4.5:8b        — держи про запас, но по
-                                                данным сравнений — не лучший
-                                                выбор для этой задачи
+    Alternatives if qwen3-vl doesn't work out on quality or speed:
+           ollama pull gemma4:12b            — stronger than Qwen on
+                                                German (Google's home
+                                                language — one of the
+                                                best-covered), weaker on
+                                                Ukrainian (see above), but
+                                                still a workable option
+           ollama pull glm-ocr                — 0.9B, 2.2 GB, VERY fast,
+                                                #1 on the OmniDocBench
+                                                benchmark (tables/stamps/
+                                                complex layouts), but
+                                                trained with an emphasis on
+                                                Chinese/English — Ukrainian
+                                                support is questionable
+           ollama pull maternion/lightonocr-2 — 1B, 1.5 GB, very fast, but
+                                                built by its authors
+                                                (LightOn, France) with a
+                                                focus on French and
+                                                scientific papers/LaTeX —
+                                                Ukrainian support is also
+                                                questionable
+           ollama pull deepseek-ocr           — 3B, 6.7 GB, general-purpose
+                                                OCR, Cyrillic coverage not
+                                                confirmed
+           ollama pull minicpm-v4.5:8b        — keep as a backup, but based
+                                                on comparison data it's not
+                                                the best choice for this
+                                                task
 
-Ollama выгружает модель из VRAM сама через ~5 минут простоя — не висит в
-памяти постоянно, пока ты явно не гоняешь скрипт.
+Ollama unloads the model from VRAM on its own after ~5 minutes of
+inactivity — it doesn't sit in memory permanently unless you're actively
+running the script.
 
-ЕСЛИ МОДЕЛЬ ВСЁ РАВНО "УМИРАЕТ" (обычно значит — не влезла в VRAM):
-    1. Уже сделано в этом скрипте: контекст обрезан до 4096 токенов
-       (--num-ctx) и рендер снижен до 150 DPI — оба параметра напрямую
-       уменьшают требуемую VRAM, без потери в качестве весов модели.
-    2. Если всё равно не лезет — возьми модель поменьше:
-           ollama pull qwen3-vl:4b   (3.3 ГБ вместо 6.1 ГБ у 8b)
-           ollama pull qwen3-vl:2b   (1.9 ГБ — почти наверняка влезет)
-       Qwen3-VL — это одна архитектура на разных размерах, OCR-улучшения
-       (32 языка) есть во всей линейке, не только в 8B.
-    3. Ещё один рычаг — квантовать не веса (они уже Q4 по умолчанию), а
-       KV-cache контекста: переменная окружения OLLAMA_KV_CACHE_TYPE=q8_0
-       (или q4_0 для ещё большей экономии) перед запуском Ollama. На Windows
-       задать через "Изменение переменных среды для вашей учётной записи",
-       затем перезапустить Ollama (иконка в трее -> Quit -> запустить снова).
-    4. Проверь, что VRAM не делят с чем-то ещё (игры, браузер с аппаратным
-       ускорением, второй монитор с тяжёлым десктопом) — `ollama ps` и
-       диспетчер задач -> вкладка "Производительность" -> GPU покажут,
-       сколько памяти реально свободно перед запуском.
+IF THE MODEL "DIES" ANYWAY (usually means it didn't fit in VRAM):
+    1. Already done in this script: context is capped at 4096 tokens
+       (--num-ctx) and rendering is reduced to 150 DPI — both parameters
+       directly reduce the required VRAM without any loss in the model
+       weights' quality.
+    2. If it still doesn't fit — take a smaller model:
+           ollama pull qwen3-vl:4b   (3.3 GB instead of 6.1 GB for 8b)
+           ollama pull qwen3-vl:2b   (1.9 GB — almost certain to fit)
+       Qwen3-VL is one architecture at different sizes; the OCR
+       improvements (32 languages) are present across the whole lineup,
+       not just in the 8B.
+    3. Another lever — quantize not the weights (already Q4 by default),
+       but the context's KV cache: the environment variable
+       OLLAMA_KV_CACHE_TYPE=q8_0 (or q4_0 for even more savings) before
+       starting Ollama. On Windows, set it via "Edit environment variables
+       for your account", then restart Ollama (tray icon -> Quit -> start
+       again).
+    4. Check that VRAM isn't shared with something else (games, a browser
+       with hardware acceleration, a second monitor with a heavy desktop)
+       — `ollama ps` and Task Manager -> "Performance" tab -> GPU will show
+       how much memory is actually free before you run this.
 
-ЗАПУСК:
+USAGE:
     python local_vision_ocr_test.py 4
     python local_vision_ocr_test.py 4 --model minicpm-v4.5:8b
     python local_vision_ocr_test.py 4 --patch
@@ -87,16 +96,16 @@ import requests
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 
-# Секреты только из окружения — см. .env.example в корне проекта.
+# Secrets come from the environment only — see .env.example in the project root.
 PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 
 OLLAMA_URL  = "http://localhost:11434"
-RENDER_DPI  = 150   # снижено с 200: меньше картинка -> меньше vision-токенов -> меньше VRAM
-NUM_CTX     = 4096  # Qwen3-VL "родное" окно 256K — Ollama по умолчанию резервирует
-                     # под него VRAM даже на одну страницу. Нам за глаза хватит
-                     # 4096 токенов (картинка + промпт + разумный ответ), это резко
-                     # снижает требования к памяти без потери качества распознавания.
+RENDER_DPI  = 150   # lowered from 200: smaller image -> fewer vision tokens -> less VRAM
+NUM_CTX     = 4096  # Qwen3-VL's "native" window is 256K — Ollama reserves VRAM for it
+                     # by default even for a single page. 4096 tokens is plenty for us
+                     # (image + prompt + a reasonable response); this sharply cuts
+                     # memory requirements without any loss in recognition quality.
 
 PROMPT = (
     "Распознай ВЕСЬ текст на этом изображении документа — печатный и "

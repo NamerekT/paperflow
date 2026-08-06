@@ -15,16 +15,16 @@ from docflow.adapters.pdf.fitz_document import FitzOpener
 from docflow.domain.policies import NativeTextConfig
 from docflow.pipeline.native_text import is_native_text_document
 
-DATA = Path(__file__).resolve().parent.parent / "test" / "data"
+DATA = Path(__file__).resolve().parent.parent / "experiments" / "data"
 CONFIG = NativeTextConfig()
 
 # The fixtures here are real, personally identifying documents from the archive this
-# project processes - gitignored (see test/data/ in .gitignore), not present in a fresh
-# checkout. These tests skip rather than fail when they are absent; where they are
+# project processes - gitignored (see experiments/data/ in .gitignore), not present in a
+# fresh checkout. These tests skip rather than fail when they are absent; where they are
 # present, they are the only place PyMuPDF itself, rather than a fake PageHandle, is
 # exercised.
 pytestmark = pytest.mark.skipif(
-    not DATA.is_dir(), reason="test/data/ fixtures are gitignored and local-only"
+    not DATA.is_dir(), reason="experiments/data/ fixtures are gitignored and local-only"
 )
 
 

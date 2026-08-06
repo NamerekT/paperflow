@@ -1,51 +1,55 @@
 """
 docling_ocr_test.py
 ────────────────────────────────────────────────────────────────────────────
-Разовый тестовый скрипт (НЕ встроен в DocSorter.py): скачивает оригинал
-документа из Paperless, гоняет его через Docling (layout-aware OCR) и либо
-печатает получившийся Markdown, либо (с --patch) записывает его прямо в
-поле content документа через PATCH /api/documents/{id}/.
+One-off test script (NOT wired into DocSorter.py): downloads the original
+document from Paperless, runs it through Docling (layout-aware OCR), and
+either prints the resulting Markdown or (with --patch) writes it straight
+into the document's content field via PATCH /api/documents/{id}/.
 
-Зачем отдельно от DocSorter: сначала нужно своими глазами увидеть, действительно
-ли Docling исправляет то, что сейчас ломает NAPS2/Tesseract (пропущенный текст,
-путаница кириллица/латиница), прежде чем встраивать это в постоянный пайплайн.
+Why this lives outside DocSorter: we first need to see with our own eyes
+whether Docling actually fixes what NAPS2/Tesseract currently gets wrong
+(dropped text, Cyrillic/Latin mix-ups) before wiring it into the permanent
+pipeline.
 
-ПОЧЕМУ ЭТОТ СКРИПТ НАДО ЗАПУСКАТЬ У СЕБЯ, А НЕ Я ЕГО ЗАПУСТИЛ:
-Я пытался прогнать тест в своей облачной песочнице — не получилось физически:
-у неё всего ~9.8 ГБ диска, а `pip install docling` по умолчанию тащит
-CUDA-версию torch (это стандартный wheel с PyPI на Linux, ~2-3 ГБ библиотек
-для видеокарты). Установка упала с "No space left on device". Официальный
-CPU-only индекс PyTorch (download.pytorch.org) тоже недоступен — прокси
-песочницы его блокирует. На твоём ПК с нормальным интернетом это не проблема,
-если поставить torch правильно (см. ниже).
+WHY YOU NEED TO RUN THIS SCRIPT YOURSELF, RATHER THAN ME RUNNING IT:
+I tried to run the test in my cloud sandbox — it wasn't physically
+possible: it only has ~9.8 GB of disk, and `pip install docling` pulls in
+the CUDA build of torch by default (the standard PyPI wheel on Linux,
+~2-3 GB of GPU libraries). The install failed with "No space left on
+device". The official CPU-only PyTorch index (download.pytorch.org) is
+also unreachable — the sandbox proxy blocks it. On your PC with normal
+internet access this isn't a problem, as long as you install torch
+correctly (see below).
 
-УСТАНОВКА (один раз; сам Docling потом не держит НИЧЕГО в памяти между
-запусками — грузится и работает только пока выполняется этот скрипт,
-как ты и просил изначально):
+INSTALLATION (one-time; Docling itself doesn't keep ANYTHING in memory
+between runs afterwards — it loads and runs only while this script is
+executing, exactly as you originally asked):
 
     pip install torch --index-url https://download.pytorch.org/whl/cpu
     pip install docling
 
-Первая строка ВАЖНА: без неё pip поставит тебе CUDA-версию torch (лишние
-~2 ГБ библиотек для видеокарты, которой на этом ПК нет). Команда выше ставит
-CPU-only сборку — она меньше и не тянет CUDA рантайм. Ставь именно в этом
-порядке (torch первым), тогда Docling увидит, что torch уже есть, и не
-попытается заменить его на GPU-версию.
+The first line MATTERS: without it, pip will install the CUDA build of
+torch (an extra ~2 GB of GPU libraries for a card this PC doesn't have).
+The command above installs the CPU-only build — smaller, and it doesn't
+pull in the CUDA runtime. Install in exactly this order (torch first), so
+Docling sees torch is already present and doesn't try to replace it with
+the GPU version.
 
-ВАЖНО ПРО ЯЗЫКИ (проверено по исходникам Docling/EasyOCR, а не на глаз):
-EasyOCR (дефолтный OCR-движок Docling) НЕ даёт смешать немецкий и украинский
-в одном вызове — в его коде есть проверка, которая кидает ValueError при
-смешении латинской и кириллической языковых групп. Документы 29 и 4 — чисто
-украинские, так что здесь это не проблема (lang=["uk"]). Но если в будущем
-захочешь прогнать через Docling смешанный документ (немецкий + украинский на
-одной странице) — потребуется два прохода с разными lang и merge результата,
-как уже сделано для RapidOCR в DocSorter.py (_merge_best_per_line).
+IMPORTANT ABOUT LANGUAGES (verified against the Docling/EasyOCR source,
+not guessed): EasyOCR (Docling's default OCR engine) does NOT allow mixing
+German and Ukrainian in a single call — its code has a check that raises
+ValueError when Latin and Cyrillic language groups are mixed. Documents 29
+and 4 are purely Ukrainian, so this isn't an issue here (lang=["uk"]). But
+if in the future you want to run a mixed document (German + Ukrainian on
+the same page) through Docling, you'll need two passes with different
+lang values and a merge of the results, the same way it's already done
+for RapidOCR in DocSorter.py (_merge_best_per_line).
 
-ЗАПУСК:
-    python docling_ocr_test.py 29                # только показать результат
-    python docling_ocr_test.py 29 --patch         # показать и записать в content
+USAGE:
+    python docling_ocr_test.py 29                # just show the result
+    python docling_ocr_test.py 29 --patch         # show and write to content
     python docling_ocr_test.py 4 --patch --lang uk
-    python docling_ocr_test.py <id> --lang de     # для немецкого документа
+    python docling_ocr_test.py <id> --lang de     # for a German document
 """
 
 import argparse
@@ -58,7 +62,7 @@ import requests
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 
-# Секреты только из окружения — см. .env.example в корне проекта.
+# Secrets come from the environment only — see .env.example in the project root.
 PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 
@@ -68,7 +72,7 @@ def _headers() -> dict:
 
 
 def download_original(doc_id: int) -> str:
-    """Скачивает ОРИГИНАЛ (не архивную копию с уже кривым текстовым слоем)."""
+    """Downloads the ORIGINAL (not the archived copy, which already has a broken text layer)."""
     resp = requests.get(
         f"{PAPERLESS_URL}/api/documents/{doc_id}/download/",
         headers=_headers(),
@@ -85,10 +89,10 @@ def download_original(doc_id: int) -> str:
 
 def run_docling(pdf_path: str, lang: str) -> str:
     """
-    force_full_page_ocr=True — обязательно для наших сканов: страницы уже
-    содержат кривой текстовый слой от NAPS2, и без этого флага Docling (как и
-    Paperless по умолчанию) может решить, что текст уже есть, и не станет
-    перераспознавать страницу заново.
+    force_full_page_ocr=True — mandatory for our scans: the pages already
+    have a broken text layer from NAPS2, and without this flag Docling
+    (like Paperless by default) may decide text already exists and skip
+    re-recognizing the page.
     """
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import EasyOcrOptions, PdfPipelineOptions
@@ -109,10 +113,11 @@ def run_docling(pdf_path: str, lang: str) -> str:
 
 def patch_content(doc_id: int, markdown: str) -> None:
     """
-    Пишет Markdown прямо в поле content документа. Проверено через браузер
-    (OPTIONS /api/documents/{id}/): поле НЕ read-only, PATCH разрешён
-    (Allow: GET, PUT, PATCH, DELETE, HEAD, OPTIONS). Сам PDF-файл при этом не
-    трогается — меняется только то, что Paperless использует для поиска.
+    Writes the Markdown straight into the document's content field. Verified
+    via the browser (OPTIONS /api/documents/{id}/): the field is NOT
+    read-only, PATCH is allowed (Allow: GET, PUT, PATCH, DELETE, HEAD,
+    OPTIONS). The PDF file itself is untouched — only what Paperless uses
+    for search changes.
     """
     resp = requests.patch(
         f"{PAPERLESS_URL}/api/documents/{doc_id}/",

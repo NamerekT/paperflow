@@ -8,8 +8,6 @@ family_members.json
 *.jsonl
 
 # Experiment artefacts (large binaries, OCR output samples)
-test/results/
-test/data/
 experiments/results/
 experiments/data/
 

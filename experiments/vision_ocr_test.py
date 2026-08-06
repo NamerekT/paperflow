@@ -1,58 +1,64 @@
 """
 vision_ocr_test.py
 ────────────────────────────────────────────────────────────────────────────
-Тест OCR через vision-LLM (модель, которая "смотрит" на картинку целиком и
-понимает текст семантически) вместо посимвольного OCR (RapidOCR/Tesseract)
-или layout-модели (Docling). Идея: и Docling, и RapidOCR за сегодня
-облажались каждый по-своему — Docling путает украшенный аттестат с
-картинкой и теряет текст, RapidOCR путает кириллицу с похожей латиницей на
-словах-омоглифах (УКРАЇНА → VKPAIHA) и не читает рукописный текст вообще.
-Vision-LLM (я сам, читая скриншот глазами) ни на одной из этих трёх вещей
-не спотыкается — не путает картинку с текстом, понимает, что весь документ
-на украинском (а не гадает по одной строке/движку), и справляется с почерком.
+Tests OCR via a vision LLM (a model that "looks" at the whole image and
+understands the text semantically) instead of character-by-character OCR
+(RapidOCR/Tesseract) or a layout model (Docling). The idea: both Docling and
+RapidOCR messed up today, each in its own way — Docling confuses a
+decorated certificate for a picture and drops text, RapidOCR confuses
+Cyrillic with similar-looking Latin on homoglyph words (УКРАЇНА →
+VKPAIHA) and doesn't read handwritten text at all. A vision LLM (me,
+reading a screenshot with my own eyes) doesn't trip up on any of these
+three things — it doesn't mistake a picture for text, it understands the
+whole document is in Ukrainian (rather than guessing per line/engine), and
+it handles handwriting fine.
 
-БЕСПЛАТНЫЕ МОДЕЛИ (проверено на openrouter.ai/models, отфильтровано по
-image-input + text-output + price=0, на 1 августа 2026):
+FREE MODELS (checked on openrouter.ai/models, filtered by image-input +
+text-output + price=0, on August 1, 2026):
 
-  nvidia/nemotron-nano-12b-v2-vl:free   — 12B, заявлен как заточенный именно
-                                           под document intelligence и OCR
-                                           (лидер OCRBench v2). Дефолт здесь.
-  google/gemma-4-31b-it:free            — 31B, мультиязычный (140+ языков),
-                                           тоже с акцентом на document
-                                           understanding. Запасной вариант.
+  nvidia/nemotron-nano-12b-v2-vl:free   — 12B, advertised as specifically
+                                           tuned for document intelligence
+                                           and OCR (leads OCRBench v2).
+                                           Default here.
+  google/gemma-4-31b-it:free            — 31B, multilingual (140+
+                                           languages), also with an
+                                           emphasis on document
+                                           understanding. Fallback option.
 
-Бесплатные модели на OpenRouter лимитированы по запросам в день (обычно
-десятки в сутки без пополнения баланса) — для теста на паре документов
-более чем достаточно.
+Free models on OpenRouter are rate-limited per day (usually tens of
+requests per day without topping up the balance) — more than enough for
+testing on a couple of documents.
 
-ЛОКАЛЬНО, НА ТВОЁМ ПК (Ryzen 5 5600 + 32 ГБ RAM + RTX 5060) — это реально:
-видеокарты с 8 ГБ VRAM достаточно для vision-моделей в 3-8 млрд параметров
-в квантованном виде. Через Ollama (ollama.com), варианты на выбор:
+LOCALLY, ON YOUR PC (Ryzen 5 5600 + 32 GB RAM + RTX 5060) — this is
+realistic: a GPU with 8 GB VRAM is enough for vision models in the 3-8B
+parameter range in quantized form. Via Ollama (ollama.com), options to
+choose from:
 
-  ollama pull glm-ocr          — 0.9B, всего 2.2 ГБ, специально под OCR
-                                  документов (таблицы, печати, сложная
-                                  вёрстка), #1 на бенчмарке OmniDocBench.
-                                  Очень быстрый. МИНУС: не проверял, насколько
-                                  хорошо знает украинский — тренирован явно
-                                  с акцентом на китайский/английский.
-  ollama pull deepseek-ocr      — 3B, 6.7 ГБ, тоже заточен под OCR.
-  ollama pull qwen3-vl:8b       — 8B, более безопасный выбор по языкам:
-                                  Qwen исторически силён в многоязычном OCR,
-                                  включая кириллицу.
-  ollama pull minicpm-v4.5:8b   — 8B, тоже сильный на многоязычных сканах.
+  ollama pull glm-ocr          — 0.9B, only 2.2 GB, purpose-built for
+                                  document OCR (tables, stamps, complex
+                                  layouts), #1 on the OmniDocBench
+                                  benchmark. Very fast. DOWNSIDE: haven't
+                                  checked how well it knows Ukrainian — it
+                                  was clearly trained with an emphasis on
+                                  Chinese/English.
+  ollama pull deepseek-ocr      — 3B, 6.7 GB, also tuned for OCR.
+  ollama pull qwen3-vl:8b       — 8B, a safer choice on languages: Qwen
+                                  has historically been strong at
+                                  multilingual OCR, including Cyrillic.
+  ollama pull minicpm-v4.5:8b   — 8B, also strong on multilingual scans.
 
-Ollama не держит модель в VRAM постоянно — выгружает через некоторое время
-простоя (по умолчанию ~5 минут после последнего запроса), так что это не
-"вечно висящий Docker", а ближе к твоей исходной идее с ленивой загрузкой.
-Но: сама модель весит несколько ГБ на диске, и одноразовая закачка (один
-раз через интернет) неизбежна что для облачного варианта (не нужна), что
-для локального.
+Ollama doesn't keep the model in VRAM permanently — it unloads it after
+some idle time (~5 minutes after the last request by default), so this
+isn't "a Docker container hanging around forever", it's closer to your
+original idea of lazy loading. But: the model itself weighs several GB on
+disk, and a one-time download (once, over the internet) is unavoidable
+whether for the cloud option (not needed) or the local one.
 
-РЕКОМЕНДАЦИЯ: сначала прогони бесплатную облачную модель (ничего не грузить
-не надо, результат через 10 секунд) — если качество устроит, локальная
-модель вообще может не понадобиться.
+RECOMMENDATION: run the free cloud model first (nothing to download,
+result in 10 seconds) — if the quality is good enough, you may not need
+the local model at all.
 
-ЗАПУСК:
+USAGE:
     python vision_ocr_test.py 4
     python vision_ocr_test.py 4 --model gemma-4-31b-it
     python vision_ocr_test.py 4 --patch
@@ -71,16 +77,16 @@ import requests
 
 
 def log(msg: str) -> None:
-    """print() с принудительным flush — иначе на Windows вывод может
-    буферизоваться, и кажется, что скрипт завис, хотя он просто ждёт сети."""
+    """print() with a forced flush — otherwise output can get buffered on
+    Windows, making it look like the script has hung when it's just waiting on the network."""
     print(msg, flush=True)
 
-# Все скачанные/сгенерированные файлы теста лежат в test/results/, а не
-# рядом со скриптом — чтобы не мусорить папку тестов.
+# All downloaded/generated test files live in experiments/results/, not
+# next to the script — to avoid cluttering the experiments folder.
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 
-# Секреты только из окружения — см. .env.example в корне проекта.
+# Secrets come from the environment only — see .env.example in the project root.
 PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 
@@ -123,10 +129,10 @@ def get_or_download(doc_id: int) -> str:
 
 def render_pages_base64(pdf_path: str) -> list[str]:
     """
-    Рендерит каждую страницу PDF в JPEG (не PNG!) и возвращает base64-строки.
-    JPEG с качеством 85 весит в разы меньше PNG на цветном скане — меньше
-    данных на аплоад/даунлоад и меньше vision-токенов на вход модели, что
-    напрямую влияет на скорость ответа у медленных бесплатных бэкендов.
+    Renders each PDF page to JPEG (not PNG!) and returns base64 strings.
+    JPEG at quality 85 is many times smaller than PNG for a color scan —
+    less data to upload/download and fewer vision tokens on the model's
+    input, which directly affects response speed on slow free backends.
     """
     images = []
     doc = fitz.open(pdf_path)
@@ -185,8 +191,8 @@ def ocr_page_with_vision_llm(image_b64: str, model: str, timeout: int, max_retri
         log(f"       <- ответ за {elapsed:.1f}с, статус {resp.status_code}")
 
         if resp.status_code == 429:
-            # Печатаем тело ответа — там обычно ясно написано, что именно
-            # уперлось в лимит (дневная квота :free модели, RPM, и т.п.)
+            # Print the response body — it usually spells out exactly what
+            # hit the limit (the :free model's daily quota, RPM, etc.)
             log(f"       !! 429 Too Many Requests: {resp.text[:500]}")
             wait = float(resp.headers.get("Retry-After", 5 * attempt))
             if attempt < max_retries:

@@ -1,32 +1,33 @@
 """
 gemini_vision_ocr_test.py
 ────────────────────────────────────────────────────────────────────────────
-То же самое, что vision_ocr_test.py, но напрямую через Gemini API (Google AI
-Studio), в обход OpenRouter — OpenRouter, судя по всему, роутит Gemma криво
-и/или урезал лимиты. Прямой доступ к Gemma через Gemini API — отдельный
-бесплатный пул лимитов, никак не связанный с тем, что показывал OpenRouter.
+The same thing as vision_ocr_test.py, but directly through the Gemini API
+(Google AI Studio), bypassing OpenRouter — OpenRouter, as far as we can
+tell, routes Gemma incorrectly and/or has cut its limits. Direct access to
+Gemma via the Gemini API is a separate free rate-limit pool, unrelated to
+whatever OpenRouter was showing.
 
-Источник API (проверено по офиц. доке 1 августа 2026):
+API source (verified against the official docs on August 1, 2026):
 https://ai.google.dev/gemma/docs/core/gemma_on_gemini_api
 
-Поддерживаемые модели Gemma на Gemini API:
-    gemma-4-31b-it        — дефолт здесь, крупнее, обычно точнее
-    gemma-4-26b-a4b-it     — MoE, легче, тоже вариант
+Supported Gemma models on the Gemini API:
+    gemma-4-31b-it        — default here, bigger, usually more accurate
+    gemma-4-26b-a4b-it     — MoE, lighter, also an option
 
-Thinking-режим у Gemma 4 по умолчанию ВЫКЛЮЧЕН (включается только явным
-"thinkingLevel": "high") — в отличие от Gemini-моделей, здесь ничего
-специально отключать не нужно.
+Gemma 4's thinking mode is OFF by default (it only turns on with an
+explicit "thinkingLevel": "high") — unlike Gemini models, there's nothing
+special to disable here.
 
-УСТАНОВКА:
-    1. Получи бесплатный API-ключ: https://aistudio.google.com/apikey
-       (обычный Google-аккаунт, не нужен OpenRouter/биллинг)
-    2. Положи его в GEMINI_API_KEY в .env (корень проекта) или экспортируй
-       в окружение — в коде ключей больше нет.
-    3. Актуальные лимиты по своему ключу смотри на
-       https://aistudio.google.com/rate-limit — это отдельный пул от
-       того, что показывал OpenRouter.
+INSTALLATION:
+    1. Get a free API key: https://aistudio.google.com/apikey
+       (a regular Google account, no OpenRouter/billing needed)
+    2. Put it in GEMINI_API_KEY in .env (project root) or export it into
+       the environment — there are no keys left in the code.
+    3. Check the current limits for your key at
+       https://aistudio.google.com/rate-limit — this is a separate pool
+       from whatever OpenRouter was showing.
 
-ЗАПУСК:
+USAGE:
     python gemini_vision_ocr_test.py 1
     python gemini_vision_ocr_test.py 1 --model gemma-4-26b-a4b-it
     python gemini_vision_ocr_test.py 1 --patch
@@ -45,7 +46,7 @@ import requests
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 
-# Секреты только из окружения — см. .env.example в корне проекта.
+# Secrets come from the environment only — see .env.example in the project root.
 PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 
@@ -155,16 +156,18 @@ def ocr_page_with_gemini(image_b64: str, model: str, timeout: int, max_retries: 
         data = resp.json()
         try:
             parts = data["candidates"][0]["content"]["parts"]
-            # ВАЖНО: части с "thought": true — это внутренние рассуждения модели
-            # вслух ("Wait, looking closer...", черновики, самокоррекции), а не
-            # финальный ответ. Раньше это склеивалось вместе с текстом — отсюда
-            # разросшийся в 4 раза файл с видимыми колебаниями модели. Берём
-            # только не-thought части — то, что модель реально выдаёт как ответ.
+            # IMPORTANT: parts with "thought": true are the model's internal
+            # reasoning out loud ("Wait, looking closer...", drafts,
+            # self-corrections), not the final answer. This used to get
+            # concatenated together with the text — hence a file that
+            # ballooned to 4x its size with the model's visible waffling
+            # visible. We only take the non-thought parts — what the model
+            # actually produces as its answer.
             final_parts = [p.get("text", "") for p in parts if not p.get("thought")]
             text = "".join(final_parts).strip()
             if not text:
-                # На случай, если модель ответила ТОЛЬКО thought-частями —
-                # лучше вернуть их, чем пустую строку молча.
+                # In case the model answered with ONLY thought parts —
+                # better to return them than to silently return an empty string.
                 text = "".join(p.get("text", "") for p in parts).strip()
             return text
         except (KeyError, IndexError) as e:

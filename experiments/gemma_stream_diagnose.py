@@ -1,35 +1,37 @@
 r"""
 gemma_stream_diagnose.py
 ────────────────────────────────────────────────────────────────────────────
-Диагностика теории "зависает не сеть/прокси, а сама Gemma" — зацикливается
-на генерации и никогда не доходит до стоп-токена.
+Diagnoses the theory "it's not the network/proxy hanging, it's Gemma
+itself" — looping during generation and never reaching a stop token.
 
-Стримит ответ от LiteLLM-прокси (docsorter_common/config.py::VISION_PROXY_URL)
-постранично и печатает каждый кусок текста по мере поступления, с
-таймштампом и паузой от предыдущего куска. Так видно РАЗНИЦУ между:
-  - "тишина совсем, ни одного байта" — сетевая/прокси проблема (то, что мы
-    чинили http_utils.py::post_with_deadline() раньше);
-  - "текст идёт, но модель залипла и повторяет одно и то же" — проблема
-    самой генерации, известная болячка vision-LLM на плотном визуально
-    повторяющемся контенте (ряды чекбоксов, повторяющаяся структура) при
-    жадном (temperature=0) decoding — сбежать из локального повторяющегося
-    цикла нечем без капли случайности.
+Streams the response from the LiteLLM proxy
+(docsorter_common/config.py::VISION_PROXY_URL) page by page and prints each
+chunk of text as it arrives, with a timestamp and the gap since the
+previous chunk. This makes the DIFFERENCE visible between:
+  - "total silence, not a single byte" — a network/proxy problem (what we
+    fixed earlier in http_utils.py::post_with_deadline());
+  - "text keeps coming, but the model is stuck repeating the same thing" —
+    a generation problem itself, a known issue with vision LLMs on dense,
+    visually repetitive content (rows of checkboxes, repeating structure)
+    under greedy (temperature=0) decoding — there's nothing to escape a
+    local repetition loop with, without a bit of randomness.
 
-Скрипт сам ловит зацикливание: если один и тот же короткий "хвост" текста
-повторяется REPEAT_THRESHOLD раз подряд, ожидание прерывается и громко
-печатается диагноз — не нужно ждать реального зависания/лимита токенов
-вручную, чтобы понять, что происходит.
+The script catches the looping itself: if the same short "tail" of text
+repeats REPEAT_THRESHOLD times in a row, the wait is interrupted and the
+diagnosis is printed loudly — no need to wait out an actual hang/token
+limit manually to figure out what's happening.
 
-ЗАПУСК:
+USAGE:
     python gemma_stream_diagnose.py "D:\Доки доки\Docs Germany\Unsorted scans\queue\scan_0001.pdf" 2
-    (путь к PDF, номер страницы, с 1)
+    (path to the PDF, page number, 1-based)
 
-    Необязательно:
+    Optional:
     python gemma_stream_diagnose.py <pdf> <page> --no-mitigations
-        — шлёт БЕЗ max_tokens/frequency_penalty (как было раньше), чтобы
-          сравнить: если с ними зацикливание не ловится, а без них —
-          ловится, это прямое подтверждение теории и того, что фикс в
-          ocr_cascade.py реально помогает, а не просто "на всякий случай".
+        — sends WITHOUT max_tokens/frequency_penalty (as it was before), to
+          compare: if looping isn't caught with them but IS caught without
+          them, that's direct confirmation of the theory and that the fix
+          in ocr_cascade.py genuinely helps rather than being just "just in
+          case".
 """
 
 import argparse
@@ -47,9 +49,9 @@ from docsorter_common import config
 from docsorter_common.ocr_cascade import PROMPT_VISION
 
 RENDER_DPI = 300
-REPEAT_THRESHOLD   = 6    # сколько подряд идентичных "хвостов" текста считать зацикливанием
-REPEAT_CHUNK_CHARS = 20   # длина "хвоста", который сверяем на повтор
-HARD_CUTOFF_SEC    = 180  # если за это время само не закончилось — считаем зависшим/зацикленным без явного повтора
+REPEAT_THRESHOLD   = 6    # how many identical text "tails" in a row count as looping
+REPEAT_CHUNK_CHARS = 20   # length of the "tail" we compare for repetition
+HARD_CUTOFF_SEC    = 180  # if it hasn't finished on its own by then, treat it as hung/looping even without an explicit repeat
 
 
 def log(msg: str) -> None:
@@ -147,7 +149,7 @@ def main():
         full_text += delta
         log(f"[{now - start:6.1f}s +{gap:4.1f}s] {delta!r}")
 
-        # Детектор зацикливания: смотрим на последний "хвост" накопленного текста.
+        # Loop detector: look at the latest "tail" of the accumulated text.
         tail = full_text[-REPEAT_CHUNK_CHARS:]
         repeat_window.append(tail)
         if len(repeat_window) > REPEAT_THRESHOLD:

@@ -6,9 +6,7 @@
 .claude/
 
 # Diagnostic scripts and their data/output - not needed to run the service, and the
-# data/results subfolders alone have run to tens of megabytes locally. experiments/ is
-# the post-migration name (stage 9); test/ is today's.
-test/
+# data/results subfolders alone have run to tens of megabytes locally.
 experiments/
 
 # Real personal data and secrets - never belongs in a build context, let alone an image

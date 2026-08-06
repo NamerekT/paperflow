@@ -1,26 +1,26 @@
 """
 rapidocr_compare_test.py
 ────────────────────────────────────────────────────────────────────────────
-Прямое сравнение: тот же RapidOCR-движок (латин + eslav, дублирован из
-DocSorter.py — код не импортируется напрямую, потому что DocSorter.py при
-импорте сразу запускает watchdog-обозреватель) на тех же файлах, на которых
-Docling облажался (см. doc_4_docling.md — "АОААТОК 4О АТЕСТАТА" и потерянные
-куски текста под "<!-- image -->").
+A direct comparison: the same RapidOCR engine (latin + eslav, duplicated
+from DocSorter.py — the code isn't imported directly because DocSorter.py
+starts a watchdog observer immediately on import) on the same files where
+Docling messed up (see doc_4_docling.md — "АОААТОК 4О АТЕСТАТА" [garbled OCR
+output] and dropped chunks of text under "<!-- image -->").
 
-Почему стоит проверить: у Docling есть отдельная модель разметки страницы,
-которая решает, что на странице "текст", а что "картинка" (декоративный
-элемент/фото) — и не гоняет OCR по регионам, помеченным как "картинка".
-Компактный украшенный аттестат с рамкой и гербом эта модель, похоже, путает
-с фотографией. RapidOCR так не делает — он просто ищет все текстовые блоки
-на изображении и распознаёт каждый, без семантической классификации
-"текст vs картинка". Поэтому теоретически не должен наступать на те же
-грабли.
+Why this is worth checking: Docling has a separate page-layout model that
+decides what on the page is "text" and what is a "picture" (decorative
+element/photo) — and doesn't run OCR over regions marked as "picture". It
+seems to be confusing the compact, decorated certificate with its border
+and coat of arms for a photograph. RapidOCR doesn't do this — it simply
+looks for all text blocks in the image and recognizes each one, with no
+semantic "text vs picture" classification. So in theory it shouldn't hit
+the same snag.
 
-Работает на файлах doc_4_original.pdf / doc_29_original.pdf, которые уже
-лежат в этой папке (их скачал docling_ocr_test.py). Если их нет — скрипт
-скачает сам.
+Works on the doc_4_original.pdf / doc_29_original.pdf files already sitting
+in this folder (downloaded by docling_ocr_test.py). If they're missing, the
+script downloads them itself.
 
-ЗАПУСК:
+USAGE:
     python rapidocr_compare_test.py 4
     python rapidocr_compare_test.py 4 --patch
     python rapidocr_compare_test.py 29 --patch
@@ -44,7 +44,7 @@ except ImportError:
     from rapidocr_onnxruntime import RapidOCR
     LangRec = OCRVersion = ModelType = None
 
-# Секреты только из окружения — см. .env.example в корне проекта.
+# Secrets come from the environment only — see .env.example in the project root.
 PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 OCR_RENDER_DPI      = 200

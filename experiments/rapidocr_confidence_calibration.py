@@ -1,50 +1,50 @@
 r"""
 rapidocr_confidence_calibration.py
 ────────────────────────────────────────────────────────────────────────────
-Калибровка RapidOCR confidence на боевой паре движков (latin + eslav — та же
-логика, что в DocSorter.py и rapidocr_compare_test.py), чтобы подобрать
-порог эскалации в Gemma.
+Calibrates RapidOCR confidence on the production pair of engines (latin +
+eslav — the same logic as in DocSorter.py and rapidocr_compare_test.py), to
+pick the escalation threshold into Gemma.
 
-ПРАВИЛО ЭСКАЛАЦИИ (см. ESCALATE_MEAN / ESCALATE_P10 ниже) считается НЕ по
-всему документу целиком, а ПО КАЖДОЙ СТРАНИЦЕ ОТДЕЛЬНО — "не средняя
-температура по палате, а сколько в морге". Документ на 8 страниц, где
-7 страниц идеальны, а 1 страница — рукописный ответ, при усреднении по
-всему документу выглядит нормально (плохая страница тонет в общем среднем),
-а при постраничной оценке — ловится сразу. Если хотя бы одна страница
-документа проваливает mean < ESCALATE_MEAN ИЛИ p10 < ESCALATE_P10 — весь
-документ помечается в сводке как ESCALATE.
+The ESCALATION RULE (see ESCALATE_MEAN / ESCALATE_P10 below) is evaluated
+NOT over the whole document at once, but PER PAGE SEPARATELY — "not the
+average temperature across the ward, but how many are in the morgue." An
+8-page document where 7 pages are perfect and 1 page is a handwritten
+answer looks fine when averaged over the whole document (the bad page
+drowns in the overall average), but gets caught immediately with per-page
+scoring. If even one page of a document fails mean < ESCALATE_MEAN OR
+p10 < ESCALATE_P10, the whole document is flagged ESCALATE in the summary.
 
-КАК ЭТО УСТРОЕНО (важно, раз это крутится на большом числе файлов):
+HOW THIS IS BUILT (matters since this runs over a large number of files):
 
-  1. Список файлов — в отдельном текстовом файле calibration_files.txt
-     (по одному пути/id на строку, # — комментарии). Можно дописывать туда
-     новые строки и просто перезапускать скрипт заново.
+  1. The file list lives in a separate text file, calibration_files.txt
+     (one path/id per line, # for comments). You can append new lines to it
+     and just rerun the script.
 
-  2. Результаты копятся в calibration_results.jsonl — по одной JSON-строке
-     на документ (путь, категория, разбивка по страницам, все строки текста
-     и их score). Построчный формат специально для того, чтобы можно было
-     прервать прогон на середине и запустить заново: уже посчитанные
-     документы (по пути) скрипт находит в этом файле и пропускает.
+  2. Results accumulate in calibration_results.jsonl — one JSON line per
+     document (path, category, per-page breakdown, all text lines and
+     their score). The line-delimited format is specifically so the run
+     can be interrupted partway through and restarted: the script finds
+     already-processed documents (by path) in this file and skips them.
 
-  3. Сводка — в calibration_summary.txt при каждом запуске: список документов
-     с пометкой ESCALATE/ok, сводка по категориям, худшие/лучшие строки.
-     Это единственный файл, который нужно присылать/показывать после
-     прогона.
+  3. A summary is written to calibration_summary.txt on every run: a list
+     of documents flagged ESCALATE/ok, a per-category summary, and the
+     worst/best lines. This is the only file you need to send/show after
+     a run.
 
-  4. СКОРОСТЬ: документы обрабатываются параллельно (несколько процессов
-     одновременно — по умолчанию все ядра минус два). Это единственный
-     значимый рычаг ускорения, который тут есть: OCR — это CPU-bound работа
-     (никакого скачивания моделей на лету, они уже на диске), и по одному
-     документу за раз использует только одно ядро процессора, оставляя
-     остальные простаивать. Ryzen 5600 — 6 ядер/12 потоков, так что можно
-     получить в разы более быстрый прогон почти бесплатно.
+  4. SPEED: documents are processed in parallel (several processes at
+     once — by default all cores minus two). This is the only significant
+     speed lever available here: OCR is CPU-bound work (no downloading
+     models on the fly, they're already on disk), and processing one
+     document at a time uses only one CPU core, leaving the rest idle.
+     The Ryzen 5600 has 6 cores/12 threads, so a several-times-faster run
+     is basically free.
 
-ЗАПУСК:
+USAGE:
     python rapidocr_confidence_calibration.py
     python rapidocr_confidence_calibration.py --scan-folder "D:\Доки доки\Docs Germany"
     python rapidocr_confidence_calibration.py --workers 8
 
-    (--workers по умолчанию = число ядер минус 2, но не меньше 1)
+    (--workers defaults to number of cores minus 2, but never less than 1)
 """
 
 import argparse
@@ -57,12 +57,12 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-# Ограничиваем внутренний многопоточный параллелизм onnxruntime до 1 потока
-# на процесс-воркер — иначе каждый из N параллельных процессов сам попытается
-# расхватать все ядра под капотом (onnxruntime/OpenMP), и вместо ускорения
-# получится противоположное — процессы будут толкаться за одни и те же ядра.
-# ВАЖНО: должно быть выставлено ДО импорта onnxruntime/rapidocr, поэтому
-# делается на уровне модуля, ещё до соответствующих import.
+# Limit onnxruntime's internal multithreaded parallelism to 1 thread per
+# worker process — otherwise each of the N parallel processes will try to
+# grab all cores under the hood (onnxruntime/OpenMP), and instead of a
+# speedup you get the opposite: processes fighting over the same cores.
+# IMPORTANT: this must be set BEFORE importing onnxruntime/rapidocr, so it's
+# done at module level, ahead of the relevant imports.
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -84,12 +84,12 @@ FILES_LIST    = RESULTS_DIR / "calibration_files.txt"
 RESULTS_JSONL = RESULTS_DIR / "calibration_results.jsonl"
 SUMMARY_TXT   = RESULTS_DIR / "calibration_summary.txt"
 
-# Секреты только из окружения — см. .env.example в корне проекта.
+# Secrets come from the environment only — see .env.example in the project root.
 PAPERLESS_URL       = os.environ.get("PAPERLESS_URL", "https://paperless.boreray-balance.ts.net")
 PAPERLESS_API_TOKEN = os.environ["PAPERLESS_API_TOKEN"]
 OCR_RENDER_DPI      = 300
 
-# Порог эскалации в Gemma — считается ПОСТРАНИЧНО (см. докстринг выше).
+# Escalation threshold into Gemma — evaluated PER PAGE (see the docstring above).
 ESCALATE_MEAN = 0.95
 ESCALATE_P10  = 0.95
 
@@ -102,7 +102,7 @@ def _log(msg: str) -> None:
     print(msg, flush=True)
 
 
-# ── чтение списка файлов ────────────────────────────────────────────────
+# ── reading the file list ────────────────────────────────────────────────
 
 def read_file_list(path: Path) -> list[str]:
     if not path.exists():
@@ -141,8 +141,8 @@ def file_sha256(path: Path) -> str:
 
 
 def scan_folder_into_files_list(folder: str) -> int:
-    """Рекурсивно находит все *.pdf в folder, дедуплицирует по sha256
-    содержимого, дописывает новые пути в calibration_files.txt."""
+    """Recursively finds all *.pdf files in folder, deduplicates by sha256
+    of their content, appends new paths to calibration_files.txt."""
     folder_path = Path(folder)
     if not folder_path.is_dir():
         _log(f"  !!  Папка не найдена: {folder}")
@@ -160,12 +160,13 @@ def scan_folder_into_files_list(folder: str) -> int:
             except OSError:
                 pass
 
-    # На Windows/NTFS сопоставление регистронезависимое, поэтому rglob("*.pdf")
-    # сам по себе уже находит и .PDF — оба вызова возвращают один и тот же
-    # список путей. Раньше они просто СКЛАДЫВАЛИСЬ (list + list), из-за чего
-    # каждый файл считался дважды (542 вместо 271 в выводе — это оно) и дважды
-    # хэшировался. Через set() дубли схлопываются на уровне путей — на Linux,
-    # где регистр значим, оба варианта имени всё ещё будут найдены корректно.
+    # On Windows/NTFS matching is case-insensitive, so rglob("*.pdf") already
+    # finds .PDF files too — both calls return the same list of paths.
+    # Previously they were simply CONCATENATED (list + list), which meant
+    # every file was counted twice (542 instead of 271 in the output — this
+    # is what caused it) and hashed twice. Using set() collapses duplicates
+    # at the path level — on Linux, where case matters, both name variants
+    # will still be found correctly.
     all_pdfs = sorted(set(folder_path.rglob("*.pdf")) | set(folder_path.rglob("*.PDF")))
     seen_hashes = set(existing_hashes)
     new_paths = []
@@ -191,10 +192,10 @@ def scan_folder_into_files_list(folder: str) -> int:
 
 
 def resolve_entry(entry: str) -> tuple[str, str]:
-    """Возвращает (путь_к_pdf, категория). Для чисел (id в Paperless) уже
-    скачивает файл — вызывается в главном процессе ДО раздачи задач
-    воркерам, чтобы не скачивать один и тот же документ параллельно из
-    нескольких процессов одновременно."""
+    """Returns (pdf_path, category). For numbers (Paperless ids) this already
+    downloads the file — called in the main process BEFORE handing tasks out
+    to workers, so the same document isn't downloaded in parallel from
+    several processes at once."""
     if entry.isdigit():
         path = download_paperless_doc(int(entry))
         return path, "Paperless"
@@ -203,11 +204,10 @@ def resolve_entry(entry: str) -> tuple[str, str]:
     return path, category
 
 
-# ── движки RapidOCR (боевая пара latin + eslav) ─────────────────────────
-# Глобальные переменные внутри КАЖДОГО процесса-воркера — инициализируются
-# один раз через initializer при старте пула, дальше переиспользуются для
-# всех документов, доставшихся этому воркеру (не грузим модели заново на
-# каждый файл).
+# ── RapidOCR engines (production pair: latin + eslav) ───────────────────
+# Global variables inside EACH worker process — initialized once via the
+# pool's initializer at startup, then reused for every document that lands
+# on that worker (we don't reload the models for every file).
 _ENGINE_LATIN = None
 _ENGINE_ESLAV = None
 
@@ -258,7 +258,7 @@ def merge_best_per_line(latin_lines, eslav_lines):
 
 
 def analyze_pdf_per_page(path: str, engine_latin, engine_eslav) -> list[list]:
-    """Возвращает список страниц; каждая страница — список (text, score)."""
+    """Returns a list of pages; each page is a list of (text, score)."""
     pages_out = []
     doc = fitz.open(path)
     try:
@@ -279,7 +279,7 @@ def analyze_pdf_per_page(path: str, engine_latin, engine_eslav) -> list[list]:
 
 
 def _process_one(task: tuple[str, str, str]) -> dict:
-    """Выполняется в процессе-воркере. task = (entry, path, category)."""
+    """Runs inside a worker process. task = (entry, path, category)."""
     entry, path, category = task
     t0 = time.monotonic()
     try:
@@ -297,7 +297,7 @@ def _process_one(task: tuple[str, str, str]) -> dict:
         }
 
 
-# ── накопление результатов ──────────────────────────────────────────────
+# ── accumulating results ────────────────────────────────────────────────
 
 def load_already_done() -> set[str]:
     done = set()
@@ -318,15 +318,15 @@ def append_result(record: dict) -> None:
 
 
 def load_all_results() -> list[dict]:
-    """Читает calibration_results.jsonl. Записи со старой (до постраничной
-    разбивки) схемой — {"scores": [...], "lines": [...]} без "pages" —
-    оборачиваются как один "виртуальный" документ-страница, чтобы не терять
-    уже посчитанные (дорогие) результаты. Для таких документов эскалация
-    оценивается по всему документу целиком (как раньше) — то есть ровно
-    так же неточно, как до этого изменения, не хуже. Чтобы получить точную
-    постраничную оценку и для них — удали их строку из calibration_results.jsonl
-    и путь останется в calibration_files.txt, скрипт пересчитает при следующем
-    запуске."""
+    """Reads calibration_results.jsonl. Records with the old (pre-per-page)
+    schema — {"scores": [...], "lines": [...]} without "pages" — are wrapped
+    as a single "virtual" document page, so already-computed (expensive)
+    results aren't lost. For such documents escalation is evaluated over the
+    whole document at once (as before) — i.e. exactly as imprecise as it was
+    before this change, not worse. To get an accurate per-page evaluation for
+    them too, delete their line from calibration_results.jsonl; the path
+    will remain in calibration_files.txt and the script will recompute it on
+    the next run."""
     if not RESULTS_JSONL.exists():
         return []
     records = []
@@ -340,7 +340,7 @@ def load_all_results() -> list[dict]:
     return records
 
 
-# ── сводка ───────────────────────────────────────────────────────────────
+# ── summary ──────────────────────────────────────────────────────────────
 
 def page_stats(page_lines: list) -> tuple[float, float, float, int]:
     scores = np.array([s for _, s in page_lines], dtype=float)
@@ -350,7 +350,7 @@ def page_stats(page_lines: list) -> tuple[float, float, float, int]:
 
 
 def doc_needs_escalation(record: dict) -> list[int]:
-    """Возвращает номера страниц (1-based), которые проваливают порог."""
+    """Returns page numbers (1-based) that fail the threshold."""
     bad_pages = []
     for i, page_lines in enumerate(record.get("pages", []), 1):
         mean, p10, _min, n = page_stats(page_lines)
