@@ -1,0 +1,4 @@
+{
+  "_comment": "Copy to family_members.json (gitignored - it holds real names). Every document gets the tag 'Personal' plus exactly one tag from this list: whom the document is addressed to or from. That is NOT the same as the correspondent, which is the sending organisation. 'Familie' must be present and comes last - it is the fallback for shared or unattributable documents (rent, Kfz-Schein and so on). Edit the file directly, no code changes needed.",
+  "members": ["Firstname Lastname", "Another Lastname", "Familie"]
+}

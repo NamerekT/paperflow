@@ -1,0 +1,22 @@
+# Продакшен-зависимости DocSorter. Список собран по фактическим import в
+# DocSorter.py / apply_ocr_cascade.py / find_duplicates.py / set_tag_colors.py /
+# docsorter_common/*.py — см. README.md, раздел "Python-зависимости".
+#
+# Установка (Windows, как сейчас развёрнуто):
+#     pip install -r requirements.txt
+#
+# watchdog нужен ТОЛЬКО DocSorter.py (живой watcher папки сканов) — если
+# контейнеризуется/переносится только batch-часть (apply_ocr_cascade.py,
+# find_duplicates.py, set_tag_colors.py), эту строку можно убрать.
+
+requests>=2.31
+watchdog>=4.0
+pymupdf>=1.24          # import fitz
+numpy>=1.26
+rapidocr>=2.0           # OCR-движок; на старых окружениях пакет назывался rapidocr_onnxruntime
+onnxruntime>=1.18        # рантайм-зависимость rapidocr (CPU)
+imagehash>=4.3            # find_duplicates.py — запасной путь (документы почти без текста)
+Pillow>=10.0                # imagehash + рендер картинок
+google-api-python-client>=2.100   # docsorter_common/google_tasks.py — напоминания о сроках (Frist)
+google-auth-httplib2>=0.2          # docsorter_common/google_tasks.py
+google-auth-oauthlib>=1.2           # docsorter_common/google_tasks.py — OAuth-consent + рефреш токена
