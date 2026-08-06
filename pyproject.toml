@@ -75,8 +75,27 @@ module = [
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["fitz.*", "rapidocr.*", "onnxruntime.*", "imagehash.*", "googleapiclient.*", "google_auth_oauthlib.*"]
+module = [
+    "fitz.*",
+    "rapidocr.*",
+    "rapidocr_onnxruntime.*",
+    "onnxruntime.*",
+    "imagehash.*",
+    "googleapiclient.*",
+    "google_auth_oauthlib.*",
+]
 ignore_missing_imports = true
+
+# numpy's own bundled stubs use PEP 695 `type` statements, which mypy can only parse
+# under python_version >= 3.12 - a type-checking-only requirement numpy added that has
+# nothing to do with what Python versions numpy actually runs on. Checked at the
+# project's target of 3.11, parsing those stubs is a hard error rather than a type
+# error, so numpy is treated as untyped here instead of upgrading the project-wide
+# target and losing 3.11-incompatible-syntax detection everywhere else.
+[[tool.mypy.overrides]]
+module = ["numpy.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

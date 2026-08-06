@@ -10,6 +10,10 @@ get wrong in production:
 | `test_pdf_unwrap.py` | Slicing a real PDF out of a PKCS#7-wrapped file |
 | `test_webhook_body.py` | Paperless double-encoding its webhook JSON body |
 | `test_i18n.py` | Locale catalogues staying in sync with the key enum |
+| `test_llm_client.py` | Retry/error taxonomy of the model gateway client |
+| `test_native_text.py` | Born-digital detection, against fake pages |
+| `test_cascade.py` | The OCR escalation cascade, against fake pages and tasks |
+| `test_fitz_document.py` | The same detection against real PyMuPDF - skipped unless `test/data/` is present locally |
 
 Run with `pytest` from the repository root.
 
