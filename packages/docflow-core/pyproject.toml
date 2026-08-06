@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docflow-core"
+version = "0.1.0"
+description = "Document normalisation, escalation and classification engine - independent of any document management system"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "pymupdf>=1.24",
+    "pydantic>=2.7",
+]
+
+# Local OCR is optional: the engine can run against a document whose text is
+# supplied by an alternative PageOcr implementation, and pulling onnxruntime
+# into every install would make the package unusable wherever no wheel exists
+# for the interpreter in use.
+[project.optional-dependencies]
+ocr = [
+    "rapidocr>=2.0",
+    "onnxruntime>=1.18",
+    "numpy>=1.26",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

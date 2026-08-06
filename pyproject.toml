@@ -1,0 +1,78 @@
+# Tooling configuration for the whole repository.
+#
+# This file deliberately has no [project] or [build-system] table: the repo
+# root is not itself a distribution. The two distributions live under
+# packages/ and carry their own pyproject.toml. ruff, mypy and pytest all
+# discover this file from the rootdir, so tool settings stay in one place
+# instead of being duplicated per package.
+#
+#   pip install -e ./packages/docflow-core
+#   pip install -e "./packages/paperflow[service,dev]"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# The legacy tree is excluded, not fixed: every path listed here is deleted or
+# rewritten before the migration ends, and each file rejoins the linter as it
+# moves into packages/. Linting code that is on its way out would produce a
+# large diff that has to be reviewed and then thrown away.
+extend-exclude = [
+    "docsorter_common",
+    "ocr_webhook_service",
+    "DocSorter.py",
+    "find_duplicates.py",
+    "trigger_missing_cascade.py",
+    "set_tag_colors.py",
+    # Diagnostic scripts. Kept as an archive of what was measured; not
+    # production code and not held to its standards.
+    "test",
+    "experiments",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "TID", "RUF"]
+ignore = [
+    # The project uses f-strings in log calls throughout; rewriting them all to
+    # %-style lazy formatting buys nothing here (log volume is a few lines per
+    # document) and would churn every call site.
+    "G004",
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Logs are never localized. Only the app layer may reach for the catalog;
+# adapters, pipeline and llm_tasks emit English log records and nothing else.
+# Without this rule the boundary rots the first time someone "just wants a
+# nicer message" in a library module.
+"paperflow.i18n".msg = "i18n belongs to apps/ only - library code logs in English"
+
+[tool.ruff.lint.per-file-ignores]
+"packages/paperflow/src/paperflow/apps/**" = ["TID251"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+# The pure layers carry the invariants worth enforcing; adapters wrap
+# third-party libraries that are largely unannotated, so strict mode there
+# would produce noise rather than signal.
+[[tool.mypy.overrides]]
+module = [
+    "docflow.domain.*",
+    "docflow.ports.*",
+    "docflow.pipeline.*",
+    "paperflow.domain.*",
+    "paperflow.pipeline.*",
+]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["fitz.*", "rapidocr.*", "onnxruntime.*", "imagehash.*", "googleapiclient.*", "google_auth_oauthlib.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"

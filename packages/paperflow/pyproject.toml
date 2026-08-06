@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paperflow"
+version = "0.1.0"
+description = "Paperless-ngx binding for the docflow engine, plus the watcher, webhook service and CLI tools"
+requires-python = ">=3.11"
+
+# The base install deliberately does NOT depend on docflow-core. The watcher
+# is a dumb uploader that never touches OCR or LLMs, and it has to install on
+# the host interpreter (currently 3.14), where rapidocr/onnxruntime wheels do
+# not exist. Only [service] pulls the engine in.
+dependencies = [
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+watcher = [
+    "watchdog>=4.0",
+]
+service = [
+    "docflow-core[ocr]",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "google-api-python-client>=2.100",
+    "google-auth-httplib2>=0.2",
+    "google-auth-oauthlib>=1.2",
+]
+tools = [
+    "pymupdf>=1.24",
+    "imagehash>=4.3",
+    "Pillow>=10.0",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
