@@ -7,21 +7,32 @@ name = "docflow-core"
 version = "0.1.0"
 description = "Document normalisation, escalation and classification engine - independent of any document management system"
 requires-python = ">=3.11"
-dependencies = [
+
+# The base install is standard library only, and that is a deliberate
+# property rather than an accident: domain, ports and settings genuinely need
+# nothing else, so an application that only wants the shared types or the
+# environment reader can depend on this package without acquiring an HTTP
+# client, a PDF library and a validation framework it will never call.
+# Everything that performs I/O lives behind an extra, one per adapter family.
+dependencies = []
+
+[project.optional-dependencies]
+llm = [
     "requests>=2.31",
-    "pymupdf>=1.24",
     "pydantic>=2.7",
 ]
-
-# Local OCR is optional: the engine can run against a document whose text is
-# supplied by an alternative PageOcr implementation, and pulling onnxruntime
-# into every install would make the package unusable wherever no wheel exists
-# for the interpreter in use.
-[project.optional-dependencies]
+pdf = [
+    "pymupdf>=1.24",
+]
 ocr = [
+    "docflow-core[pdf]",
     "rapidocr>=2.0",
     "onnxruntime>=1.18",
     "numpy>=1.26",
+]
+# Everything needed to run the full pipeline.
+engine = [
+    "docflow-core[llm,pdf,ocr]",
 ]
 
 [tool.setuptools.packages.find]

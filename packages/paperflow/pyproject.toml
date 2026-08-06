@@ -8,11 +8,13 @@ version = "0.1.0"
 description = "Paperless-ngx binding for the docflow engine, plus the watcher, webhook service and CLI tools"
 requires-python = ">=3.11"
 
-# The base install deliberately does NOT depend on docflow-core. The watcher
-# is a dumb uploader that never touches OCR or LLMs, and it has to install on
-# the host interpreter (currently 3.14), where rapidocr/onnxruntime wheels do
-# not exist. Only [service] pulls the engine in.
+# docflow-core with no extras costs nothing - it is standard library only -
+# and gives every application here the shared settings machinery and domain
+# types. The heavy half of the engine (HTTP, PDF, OCR) arrives with the
+# [service] extra, so the watcher, which is a dumb uploader that never touches
+# either, stays installable on its own.
 dependencies = [
+    "docflow-core",
     "requests>=2.31",
     "python-dotenv>=1.0",
 ]
@@ -22,7 +24,7 @@ watcher = [
     "watchdog>=4.0",
 ]
 service = [
-    "docflow-core[ocr]",
+    "docflow-core[engine]",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "google-api-python-client>=2.100",
