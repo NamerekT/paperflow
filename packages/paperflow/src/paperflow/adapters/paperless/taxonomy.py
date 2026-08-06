@@ -55,6 +55,10 @@ class PaperlessTaxonomy:
         """Whole tag records - id, name, colour - rather than just names."""
         return list(self._transport.paginate("/api/tags/", versioned=False))
 
+    def set_color(self, tag_id: int, color: str) -> None:
+        """Used by the one-off `paperflow-tag-colors` recolour tool."""
+        self._transport.patch(f"/api/tags/{tag_id}/", json={"color": color})
+
     def get_or_create_id(self, resource: Resource, name: str) -> int | None:
         """Find an entity by name, case-insensitively, creating it if absent.
 

@@ -158,6 +158,37 @@ class ServiceSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class TriggerSettings:
+    """Talking to this deployment's own webhook service, as a client.
+
+    Separate from `ServiceSettings` even though the secret is the same value: the
+    service reads it to check an incoming token, the nightly catch-up job reads it to
+    send one. And separate from the shared `Settings.load("cli")` path entirely - of
+    the four CLI tools, only the catch-up job touches the webhook at all, and it must
+    not force an unset WEBHOOK_SHARED_SECRET to fail startup for duplicates, tag-colour
+    or Google auth runs that have no use for it.
+    """
+
+    webhook_url: str
+    webhook_secret: str
+
+    @classmethod
+    def from_env(cls, env: EnvReader) -> "TriggerSettings":
+        return cls(
+            webhook_url=env.optional("WEBHOOK_URL", "http://localhost:8002/webhook/ocr-cascade"),
+            webhook_secret=env.required("WEBHOOK_SHARED_SECRET"),
+        )
+
+    @classmethod
+    def load(cls) -> "TriggerSettings":
+        """Load and validate on its own, failing once for just these variables."""
+        env = EnvReader(hint=_ENV_HINT)
+        settings = cls.from_env(env)
+        env.raise_if_incomplete()
+        return settings
+
+
+@dataclass(frozen=True, slots=True)
 class GoogleTasksSettings:
     """Deadline reminders."""
 

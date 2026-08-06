@@ -1,0 +1,42 @@
+{
+  "toast_uploaded_title": "📄 Uploaded, processing...",
+  "toast_uploaded_body": "{name}",
+  "toast_failed_title": "Upload failed",
+  "toast_failed_body": "{name}: {reason}",
+
+  "trigger_only_mode": "  ..  --only mode: {doc_ids}",
+  "trigger_doc_count": "  ..  documents in Paperless: {count} (the webhook will decide which to skip)",
+  "trigger_skipping_watch_folder": "  ..  skipping {count} file(s) from {folder} (the watcher's own folder)",
+  "trigger_already_uploaded": "  ..  {path} - already uploaded as id={doc_id} under a different path, skipping",
+  "trigger_uploading": "  ..  uploading: {path}",
+  "trigger_upload_failed": "  !!  upload failed: {path}",
+  "trigger_sending_to_webhook": "  ..  sending {count} id(s) to the webhook ({url})",
+  "trigger_webhook_result": "  ..  doc_id={doc_id}: {result}",
+  "trigger_webhook_error": "  !!  doc_id={doc_id}: {error}",
+  "trigger_done": "  ..  done: {ok} accepted, {failed} failed",
+
+  "dup_fetching": "  ..  fetching documents from Paperless (with OCR text - content is already in the API)...",
+  "dup_total_docs": "       total documents: {count}",
+  "dup_text_count": "       with text (comparing by OCR content): {count}",
+  "dup_image_count": "       nearly no text (comparing by page phash): {count}",
+  "dup_missing_image_deps": "  !!  imagehash/PyMuPDF/Pillow are not installed - skipping {count} document(s) with nearly no text (pip install imagehash --break-system-packages)",
+  "dup_hashing": "  ..  downloading and hashing {count} document(s) with nearly no text (in parallel, {workers} threads)...",
+  "dup_none_found": "\n  OK  no duplicates found (text threshold {text_threshold}, image threshold {image_threshold} - try loosening them if you expected more).",
+  "dup_text_matches_header": "\n  !!  text matches (by OCR content): {count}\n",
+  "dup_text_similarity": "── text similarity: {score}",
+  "dup_image_matches_header": "\n  !!  image matches (documents with nearly no text, phash): {count}\n",
+  "dup_image_distance": "── phash distance: {distance} (0 = identical, {threshold} = threshold)",
+  "dup_doc_line": "     id={doc_id} {created}  {title} [{filename}]",
+  "dup_doc_link": "            -> {url}",
+
+  "tagcolor_count": "  ..  tags in Paperless: {count}",
+  "tagcolor_dry_run_line": "  [DRY-RUN] {name}: {old} -> {new}",
+  "tagcolor_applied_line": "  OK  {name}: {old} -> {new}",
+  "tagcolor_summary_dry_run": "  ..  would recolour: {changed} of {total}",
+  "tagcolor_summary_applied": "  ..  recoloured: {changed} of {total}",
+
+  "google_auth_using_client": "  ..  using OAuth client: {path}",
+  "google_auth_saved": "  OK  saved: {path}",
+  "google_auth_creating_test_task": "  ..  verifying: creating a test task...",
+  "google_auth_test_task_created": "  OK  test task created (id={task_id}) in list '{list_name}' - check Google Tasks and delete it by hand."
+}

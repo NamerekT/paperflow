@@ -26,7 +26,6 @@ extend-exclude = [
     "set_tag_colors.py",
     # Diagnostic scripts. Kept as an archive of what was measured; not
     # production code and not held to its standards.
-    "test",
     "experiments",
 ]
 
@@ -53,6 +52,14 @@ known-first-party = ["docflow", "paperflow"]
 
 [tool.ruff.lint.per-file-ignores]
 "packages/paperflow/src/paperflow/apps/**" = ["TID251"]
+# The banned-api rule exists to stop adapters/pipeline from importing i18n from the
+# outside; i18n's own __init__ importing its own keys submodule is not that.
+"packages/paperflow/src/paperflow/i18n/**" = ["TID251"]
+# The i18n smoke test necessarily imports the module it is pinning down.
+"tests/test_i18n.py" = ["TID251"]
+# Long lines here are PowerShell script text embedded in an f-string, not Python
+# structure - wrapping them would fight the shape of the script for no readability gain.
+"packages/paperflow/src/paperflow/adapters/windows/toast.py" = ["E501"]
 # uvicorn imports app.py directly - there is no main() of ours to call first - so
 # limit_math_threads() has to run at module scope before the imports that would
 # otherwise pull in numpy/onnxruntime as a side effect. See the module docstring.

@@ -35,6 +35,13 @@ tools = [
     "pymupdf>=1.24",
     "imagehash>=4.3",
     "Pillow>=10.0",
+    # find_duplicates and set_tag_colors need only requests (a base dependency) and,
+    # for find_duplicates' image fallback path, the three packages above. google_auth
+    # (the one-off Google Tasks consent flow) needs its own three, independent of
+    # whether the service extra is installed alongside this one.
+    "google-api-python-client>=2.100",
+    "google-auth-httplib2>=0.2",
+    "google-auth-oauthlib>=1.2",
 ]
 dev = [
     "pytest>=8.0",
@@ -42,5 +49,17 @@ dev = [
     "mypy>=1.11",
 ]
 
+[project.scripts]
+paperflow-trigger = "paperflow.apps.cli.trigger:main"
+paperflow-duplicates = "paperflow.apps.cli.duplicates:main"
+paperflow-tag-colors = "paperflow.apps.cli.tag_colors:main"
+paperflow-google-auth = "paperflow.apps.cli.google_auth:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# The locale catalogues are data, not code - setuptools does not pick up non-.py files
+# on its own, and a wheel built without this line would install an i18n package that
+# silently falls back to raw keys for every string.
+paperflow = ["i18n/locales/*.json"]

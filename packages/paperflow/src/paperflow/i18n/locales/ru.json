@@ -1,0 +1,42 @@
+{
+  "toast_uploaded_title": "📄 Загружено, обрабатывается...",
+  "toast_uploaded_body": "{name}",
+  "toast_failed_title": "Ошибка загрузки",
+  "toast_failed_body": "{name}: {reason}",
+
+  "trigger_only_mode": "  ..  режим --only: {doc_ids}",
+  "trigger_doc_count": "  ..  документов в Paperless: {count} (вебхук сам решит, какие пропустить)",
+  "trigger_skipping_watch_folder": "  ..  пропускаю {count} файл(ов) из {folder} (папка вотчера)",
+  "trigger_already_uploaded": "  ..  {path} — уже заливали как id={doc_id} под другим путём, пропускаю",
+  "trigger_uploading": "  ..  заливаю: {path}",
+  "trigger_upload_failed": "  !!  не удалось залить: {path}",
+  "trigger_sending_to_webhook": "  ..  отправляю {count} id вебхуку ({url})",
+  "trigger_webhook_result": "  ..  doc_id={doc_id}: {result}",
+  "trigger_webhook_error": "  !!  doc_id={doc_id}: {error}",
+  "trigger_done": "  ..  готово: {ok} принято, {failed} ошибок",
+
+  "dup_fetching": "  ..  забираю документы из Paperless (вместе с OCR-текстом, content уже есть в API)...",
+  "dup_total_docs": "       всего документов: {count}",
+  "dup_text_count": "       текстовых (сравниваю по OCR-содержимому): {count}",
+  "dup_image_count": "       почти без текста (сравниваю по phash страниц): {count}",
+  "dup_missing_image_deps": "  !!  imagehash/PyMuPDF/Pillow не установлены — пропускаю {count} документ(ов) почти без текста (pip install imagehash --break-system-packages)",
+  "dup_hashing": "  ..  скачиваю и хэширую {count} документ(ов) почти без текста (параллельно, {workers} потоков)...",
+  "dup_none_found": "\n  OK  дублей не найдено (текстовый порог {text_threshold}, графический {image_threshold} — попробуй ослабить, если ожидал больше).",
+  "dup_text_matches_header": "\n  !!  текстовые совпадения (по OCR-содержимому): {count}\n",
+  "dup_text_similarity": "── схожесть текста: {score}",
+  "dup_image_matches_header": "\n  !!  графические совпадения (документы почти без текста, phash): {count}\n",
+  "dup_image_distance": "── расстояние phash: {distance} (0 = идентично, {threshold} = порог)",
+  "dup_doc_line": "     id={doc_id} {created}  {title} [{filename}]",
+  "dup_doc_link": "            -> {url}",
+
+  "tagcolor_count": "  ..  тегов в Paperless: {count}",
+  "tagcolor_dry_run_line": "  [DRY-RUN] {name}: {old} -> {new}",
+  "tagcolor_applied_line": "  OK  {name}: {old} -> {new}",
+  "tagcolor_summary_dry_run": "  ..  покрасил бы: {changed} из {total}",
+  "tagcolor_summary_applied": "  ..  покрашено: {changed} из {total}",
+
+  "google_auth_using_client": "  ..  использую OAuth-клиент: {path}",
+  "google_auth_saved": "  OK  сохранено: {path}",
+  "google_auth_creating_test_task": "  ..  проверяю: создаю тестовую задачу...",
+  "google_auth_test_task_created": "  OK  создана тестовая задача (id={task_id}) в списке '{list_name}' — проверь в Google Tasks и удали её вручную."
+}
