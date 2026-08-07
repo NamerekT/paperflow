@@ -104,6 +104,12 @@ class WatcherSettings:
     #: notification can carry a direct link to the finished document.
     paperless_wait_timeout: float = 60.0
 
+    #: How many background confirmations (waiting on paperless_wait_timeout,
+    #: then the toast) may run at once. Pure I/O - a GET poll every few
+    #: seconds, touches no file - so this can be generous; it has no bearing
+    #: on upload throughput, which stays sequential in the dispatcher.
+    max_concurrent_confirmations: int = 20
+
     @property
     def queue_folder(self) -> Path:
         """Scans accepted but not yet uploaded."""
@@ -123,6 +129,7 @@ class WatcherSettings:
             write_settle_delay=env.number("PAPERFLOW_WRITE_SETTLE_DELAY", 4.0),
             idle_check_interval=env.number("PAPERFLOW_IDLE_CHECK_INTERVAL", 20.0),
             paperless_wait_timeout=env.number("PAPERFLOW_PAPERLESS_WAIT_TIMEOUT", 60.0),
+            max_concurrent_confirmations=env.integer("PAPERFLOW_MAX_CONCURRENT_CONFIRMATIONS", 20),
         )
 
 

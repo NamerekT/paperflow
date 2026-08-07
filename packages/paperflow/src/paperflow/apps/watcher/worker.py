@@ -1,15 +1,20 @@
-"""Drains the queue strictly one file at a time.
+"""Drains the queue strictly one file at a time - for the upload itself.
 
 Wakes on `notify()` - a new scan was just queued - or every `idle_check_interval`
 seconds regardless, which is what gives a file that failed once (Paperless briefly
 unreachable, a transient error) a way back into processing without needing a second
 filesystem event to trigger it.
+
+Confirming with Paperless (waiting on its own consume task, then a toast) is handed off
+to a separate bounded pool instead of running inline: it can take up to a minute per
+file, and none of it needs the upload of the *next* file to wait around for it.
 """
 
 import logging
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from paperflow.apps.watcher.queue import ScanQueue
@@ -20,13 +25,23 @@ logger = logging.getLogger(__name__)
 
 class QueueWorker(threading.Thread):
     def __init__(
-        self, queue: ScanQueue, settings: WatcherSettings, process: Callable[[Path], bool]
+        self,
+        queue: ScanQueue,
+        settings: WatcherSettings,
+        *,
+        upload: Callable[[Path], tuple[str, str] | None],
+        finish: Callable[[str, str], None],
     ) -> None:
         super().__init__(daemon=True, name="paperflow-watcher-worker")
         self._queue = queue
         self._settings = settings
-        self._process = process
+        self._upload = upload
+        self._finish = finish
         self._wake = threading.Event()
+        self._confirm_pool = ThreadPoolExecutor(
+            max_workers=settings.max_concurrent_confirmations,
+            thread_name_prefix="paperflow-confirm",
+        )
 
     def notify(self) -> None:
         self._wake.set()
@@ -50,6 +65,11 @@ class QueueWorker(threading.Thread):
                 continue  # already processed while this pass was walking the list
 
             logger.info(f"starting: {path.name}")
-            if not self._process(path):
+            result = self._upload(path)
+            if result is None:
                 logger.warning(f"skipping {path.name}, will retry later")
                 time.sleep(2)
+                continue
+
+            task_id, name = result
+            self._confirm_pool.submit(self._finish, task_id, name)
