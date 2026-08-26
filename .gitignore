@@ -27,3 +27,7 @@ venv/
 
 # IDEs
 .claude/
+BUSINESS_PLAN.md
+IDEAS.md
+tests/Test File.pdf
+.kilo/

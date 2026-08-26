@@ -10,7 +10,7 @@ from docflow.llm_tasks.base import LlmTask
 
 logger = logging.getLogger(__name__)
 
-# Two real incidents of the same family, found by streaming the generation
+# Three real incidents of the same family, found by streaming the generation
 # token by token:
 #
 #   1. A page with a barcode along the bottom. The model latched onto it and
@@ -19,15 +19,24 @@ logger = logging.getLogger(__name__)
 #   2. A Schweigepflichtentbindung with an empty signature rule - "befreie
 #      hiermit Frau / Herrn ____________" - where it tried to draw the rule out
 #      in underscores across the full width of the page.
+#   3. A diploma supplement with a long results table, mostly blank rows below
+#      the last filled-in one. Told to mark each empty cell as "[empty field]"
+#      rather than draw a rule, it did exactly that - once per cell, once per
+#      row, for every one of the ~100 blank rows on the page - and never
+#      reached MAX_TOKENS-free ground before the ceiling hit. The single-
+#      character repetition rule below did not fire because no character ever
+#      repeated more than a handful of times in a row; it was the whole row
+#      that repeated.
 #
 # The common cause is that any long, visually repeating element with no textual
 # content of its own - a barcode, a QR code, a blank rule for a signature, a
-# dotted or solid table border - has no natural length. However many characters
-# you emit, it never looks finished, and with nothing forbidding it the model
-# will keep going to the token ceiling. max_tokens and frequency_penalty in the
-# task settings bound the damage; the actual fix is the paragraph below, which
-# names the whole category and says not to transcribe it character by
-# character. That removes the cause rather than truncating the symptom, and it
+# dotted or solid table border, a table with many blank rows - has no natural
+# length. However many characters (or rows) you emit, it never looks finished,
+# and with nothing forbidding it the model will keep going to the token
+# ceiling. max_tokens and frequency_penalty in the task settings bound the
+# damage; the actual fix is the paragraph below, which names the whole
+# category and says not to transcribe it character by character or row by
+# row. That removes the cause rather than truncating the symptom, and it
 # cannot cost accuracy on real text, because a model that never spends tokens
 # on these elements never runs out of them either.
 PROMPT_VISION = (
@@ -46,13 +55,18 @@ PROMPT_VISION = (
     "signed (a long rule, line or row of dots with no text on it, for example "
     "'befreie hiermit Frau / Herrn ___________') - do not draw the rule out "
     "across its full visible length, just mark it with a short note such as "
-    "[empty field] or [signature space] and move on. General rule: NEVER "
-    "output the same character (including '_', '-', '.', '|') more than 3-5 "
-    "times in a row, even if that character or line looks longer in the image "
-    "- as soon as you notice you are about to repeat the same character or a "
-    "short fragment of text, stop and move on to the next element on the page. "
-    "Do not add comments or explanations of your own - only the transcribed "
-    "text."
+    "[empty field] or [signature space] and move on. If a TABLE has a run of "
+    "consecutive fully empty rows (every cell blank), do not emit one "
+    "[empty field] row per blank row - transcribe at most 2 of them as a "
+    "sample, then collapse the rest into one note such as '[38 more empty "
+    "rows]' with your best count, and move on to the next non-empty content "
+    "on the page. General rule: NEVER output the same character (including "
+    "'_', '-', '.', '|') more than 3-5 times in a row, and NEVER output the "
+    "same row or line of a table more than twice in a row, even if the table "
+    "looks longer in the image - as soon as you notice you are about to "
+    "repeat the same character, row or a short fragment of text, stop and "
+    "move on to the next element on the page. Do not add comments or "
+    "explanations of your own - only the transcribed text."
 )
 
 

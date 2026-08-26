@@ -108,13 +108,12 @@ NUM_CTX     = 4096  # Qwen3-VL's "native" window is 256K — Ollama reserves VRA
                      # memory requirements without any loss in recognition quality.
 
 PROMPT = (
-    "Распознай ВЕСЬ текст на этом изображении документа — печатный и "
-    "рукописный (документ может быть на украинском или немецком). Выведи "
-    "результат как plain text, сохраняя порядок блоков на странице. "
-    "Ничего не придумывай и не пропускай — если что-то неразборчиво, "
-    "отметь это как [нерозбірливо] или [unleserlich], но не оставляй пропуски молча. "
-    "Не добавляй собственных комментариев или пояснений — только "
-    "распознанный текст."
+    "Recognize ALL text in this document image — printed and handwritten "
+    "(document may be in Ukrainian or German). Output the result as plain text, "
+    "preserving the order of blocks on the page. Do not invent or skip anything — "
+    "if something is illegible, mark it as [unreadable] or [unleserlich], but do not leave "
+    "silent skips. Do not add your own comments or explanations — only "
+    "recognized text."
 )
 
 
@@ -131,16 +130,16 @@ def check_ollama_running() -> None:
         requests.get(f"{OLLAMA_URL}/api/tags", timeout=5).raise_for_status()
     except Exception as e:
         raise RuntimeError(
-            f"Не могу достучаться до Ollama на {OLLAMA_URL} ({e}). "
-            f"Установлена ли Ollama и запущена ли она (иконка в трее)? "
-            f"См. https://ollama.com/download/windows"
+            f"Cannot reach Ollama on {OLLAMA_URL} ({e}). "
+            f"Is Ollama installed and running (tray icon)? "
+            f"See https://ollama.com/download/windows"
         )
 
 
 def get_or_download(doc_id: int) -> str:
     path = str(RESULTS_DIR / f"doc_{doc_id}_original.pdf")
     if os.path.exists(path):
-        log(f"  OK  уже скачан ранее: {path}")
+        log(f"  OK  already downloaded: {path}")
         return path
     resp = requests.get(
         f"{PAPERLESS_URL}/api/documents/{doc_id}/download/",
@@ -149,7 +148,7 @@ def get_or_download(doc_id: int) -> str:
     resp.raise_for_status()
     with open(path, "wb") as f:
         f.write(resp.content)
-    log(f"  OK  скачан оригинал: {path}  ({len(resp.content)} байт)")
+    log(f"  OK  downloaded original: {path}  ({len(resp.content)} bytes")
     return path
 
 
@@ -170,8 +169,8 @@ def render_pages_base64(pdf_path: str) -> list[str]:
 
 def ocr_page_with_ollama(image_b64: str, model: str, timeout: int, num_ctx: int) -> str:
     started = time.monotonic()
-    log(f"       -> отправляю страницу модели {model} (может грузиться в VRAM "
-        f"первый раз — не пугайся, если первая страница дольше остальных)...")
+    log(f"       -> sending page to model {model} (might load into VRAM "
+        f"first time — don't worry if the first page is slower)...")
     resp = requests.post(
         f"{OLLAMA_URL}/api/chat",
         json={
@@ -185,11 +184,11 @@ def ocr_page_with_ollama(image_b64: str, model: str, timeout: int, num_ctx: int)
         timeout=timeout,
     )
     elapsed = time.monotonic() - started
-    log(f"       <- ответ за {elapsed:.1f}с, статус {resp.status_code}")
+    log(f"       <- response for {elapsed:.1f}s, status {resp.status_code}")
 
     if resp.status_code == 404:
         raise RuntimeError(
-            f"Модель '{model}' не найдена. Скачай её сначала: ollama pull {model}"
+            f"Model '{model}' not found. Download it first: ollama pull {model}"
         )
     resp.raise_for_status()
     data = resp.json()
@@ -202,7 +201,7 @@ def patch_content(doc_id: int, text: str) -> None:
         headers=_paperless_headers(), json={"content": text}, timeout=30,
     )
     resp.raise_for_status()
-    log(f"  OK  content документа {doc_id} обновлён ({len(text)} символов)")
+    log(f"  OK  document {doc_id} content updated ({len(text)} characters)")
 
 
 def main():
@@ -210,9 +209,9 @@ def main():
     ap.add_argument("doc_id", type=int)
     ap.add_argument("--model", default="qwen3-vl:8b")
     ap.add_argument("--timeout", type=int, default=180,
-                     help="сек ожидания на страницу (первый запуск модели дольше — грузит веса в VRAM)")
+                     help="seconds to wait per page (first run of the model takes longer — loads weights into VRAM)")
     ap.add_argument("--num-ctx", type=int, default=NUM_CTX,
-                     help="размер контекста для Ollama (меньше -> меньше VRAM, по умолчанию 4096)")
+                     help="size of the context for Ollama (smaller -> less VRAM, default 4096)")
     ap.add_argument("--patch", action="store_true")
     args = ap.parse_args()
 
@@ -220,13 +219,13 @@ def main():
 
     pdf_path = get_or_download(args.doc_id)
 
-    log("  ..  рендерим страницы PDF в картинки")
+    log("  ..  rendering PDF pages to images")
     images = render_pages_base64(pdf_path)
-    log(f"       {len(images)} стр., модель: {args.model}")
+    log(f"       {len(images)} pages, model: {args.model}")
 
     page_texts = []
     for i, img in enumerate(images):
-        log(f"  ..  OCR страницы {i + 1}/{len(images)}")
+        log(f"  ..  OCR page {i + 1}/{len(images)}")
         page_texts.append(ocr_page_with_ollama(img, args.model, args.timeout, args.num_ctx))
 
     full_text = "\n\n---\n\n".join(page_texts)
@@ -238,12 +237,12 @@ def main():
     out_path = str(RESULTS_DIR / f"doc_{args.doc_id}_local_vision.md")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(full_text)
-    log(f"  OK  сохранено локально: {out_path}")
+    log(f"  OK  saved locally: {out_path}")
 
     if args.patch:
         patch_content(args.doc_id, full_text)
     else:
-        log("  i   content НЕ записан — перезапусти с --patch, если результат устраивает")
+        log("  i   content NOT written — re-run with --patch if the result is satisfactory")
 
 
 if __name__ == "__main__":

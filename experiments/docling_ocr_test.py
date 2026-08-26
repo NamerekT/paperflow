@@ -83,7 +83,7 @@ def download_original(doc_id: int) -> str:
     path = str(RESULTS_DIR / f"doc_{doc_id}_original.pdf")
     with open(path, "wb") as f:
         f.write(resp.content)
-    print(f"  OK  скачан оригинал: {path}  ({len(resp.content)} байт)")
+    print(f"  OK  downloaded original: {path}  ({len(resp.content)} bytes)")
     return path
 
 
@@ -126,18 +126,18 @@ def patch_content(doc_id: int, markdown: str) -> None:
         timeout=30,
     )
     resp.raise_for_status()
-    print(f"  OK  content документа {doc_id} обновлён ({len(markdown)} символов)")
+    print(f"  OK  document {doc_id} content updated ({len(markdown)} characters)")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("doc_id", type=int)
-    ap.add_argument("--lang", default="uk", help="код языка для EasyOCR (по умолчанию uk)")
-    ap.add_argument("--patch", action="store_true", help="записать результат в content документа")
+    ap.add_argument("--lang", default="uk", help="language code for EasyOCR (default: uk)")
+    ap.add_argument("--patch", action="store_true", help="write result to document content")
     args = ap.parse_args()
 
     pdf_path = download_original(args.doc_id)
-    print(f"  ..  гоняем Docling (lang={args.lang}); первый запуск дольше — грузит модели")
+    print(f"  ..  running Docling (lang={args.lang}); first run is slower — models are loading")
     markdown = run_docling(pdf_path, args.lang)
 
     print("\n" + "=" * 70)
@@ -147,12 +147,12 @@ def main():
     out_path = str(RESULTS_DIR / f"doc_{args.doc_id}_docling.md")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(markdown)
-    print(f"  OK  сохранено локально: {out_path}")
+    print(f"  OK  saved locally: {out_path}")
 
     if args.patch:
         patch_content(args.doc_id, markdown)
     else:
-        print("  i   content НЕ записан — перезапусти с --patch, если результат устраивает")
+        print("  i   content NOT written — re-run with --patch if the result is acceptable")
 
 
 if __name__ == "__main__":

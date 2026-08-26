@@ -62,7 +62,7 @@ def render_page_b64(pdf_path: str, page_num: int, dpi: int = RENDER_DPI) -> str:
     doc = fitz.open(pdf_path)
     try:
         if not (1 <= page_num <= doc.page_count):
-            raise ValueError(f"В файле {doc.page_count} стр., запрошена {page_num}")
+            raise ValueError(f"File has {doc.page_count} pages, requested {page_num}")
         page = doc[page_num - 1]
         zoom = dpi / 72
         pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csRGB)
@@ -76,12 +76,12 @@ def main():
     ap.add_argument("pdf_path")
     ap.add_argument("page_num", type=int)
     ap.add_argument("--no-mitigations", action="store_true",
-                     help="не слать max_tokens/frequency_penalty — как было ДО фикса, для сравнения")
+                     help="don't send max_tokens/frequency_penalty — as it was BEFORE the fix, for comparison")
     args = ap.parse_args()
 
-    log(f"  ..  рендерю страницу {args.page_num} из {args.pdf_path} (dpi={RENDER_DPI})")
+    log(f"  ..  rendering page {args.page_num} from {args.pdf_path} (dpi={RENDER_DPI})")
     img_b64 = render_page_b64(args.pdf_path, args.page_num)
-    log(f"       {len(img_b64) // 1024} КБ base64")
+    log(f"       {len(img_b64) // 1024} KB base64")
 
     payload = {
         "model": config.VISION_PROXY_MODEL,
@@ -98,11 +98,11 @@ def main():
     if not args.no_mitigations:
         payload["max_tokens"] = 8192
         payload["frequency_penalty"] = 0.3
-        log("  ..  с митигациями (max_tokens=8192, frequency_penalty=0.3)")
+        log("  ..  with mitigations (max_tokens=8192, frequency_penalty=0.3)")
     else:
-        log("  ..  БЕЗ митигаций — как было до фикса")
+        log("  ..  WITHOUT mitigations — as it was before the fix")
 
-    log("  ..  отправляю стриминговый запрос...")
+    log("  ..  sending streaming request...")
     start = time.monotonic()
     resp = requests.post(
         f"{config.VISION_PROXY_URL}/chat/completions",
@@ -121,10 +121,10 @@ def main():
         now = time.monotonic()
         if first_byte_time is None:
             first_byte_time = now
-            log(f"  ..  первый байт пришёл через {now - start:.1f}с")
+            log(f"  ..  first byte arrived after {now - start:.1f}s")
 
         if now - start > HARD_CUTOFF_SEC:
-            stopped_reason = f"жёсткий предел {HARD_CUTOFF_SEC}с — обрываю вручную (естественно НЕ закончилось)"
+            stopped_reason = f"hard limit {HARD_CUTOFF_SEC}s — manually stopping (it didn't finish naturally)"
             break
         if not raw_line or not raw_line.startswith("data: "):
             continue
@@ -155,21 +155,21 @@ def main():
         if len(repeat_window) > REPEAT_THRESHOLD:
             repeat_window.pop(0)
         if len(repeat_window) == REPEAT_THRESHOLD and len(set(repeat_window)) == 1:
-            stopped_reason = (f"ЗАЦИКЛИВАНИЕ: последние {REPEAT_THRESHOLD} кусков текста подряд идентичны "
-                               f"({tail!r}) — модель застряла в повторе, это НЕ сеть/прокси молчит")
+            stopped_reason = (f"LOOPING: last {REPEAT_THRESHOLD} text chunks are identical consecutively "
+                               f"({tail!r}) — model is stuck in repetition, this is NOT a network/proxy silence")
             break
 
     elapsed = time.monotonic() - start
     log("\n" + "=" * 70)
     if first_byte_time is None:
-        log(f"ЗАВИСЛО НА СЕТЕВОМ УРОВНЕ: за {elapsed:.1f}с не пришло ни одного байта — "
-            f"это сетевая/прокси проблема, не генерация модели")
+        log(f"HUNG AT NETWORK LEVEL: after {elapsed:.1f}s not a single byte arrived — "
+            f"this is a network/proxy problem, not model generation")
     elif stopped_reason:
-        log(f"ОСТАНОВЛЕНО ВРУЧНУЮ через {elapsed:.1f}с: {stopped_reason}")
+        log(f"STOPPED MANUALLY after {elapsed:.1f}s: {stopped_reason}")
     else:
-        log(f"Закончилось само (естественный stop) через {elapsed:.1f}с, {len(full_text)} символов")
+        log(f"Finished naturally after {elapsed:.1f}s, {len(full_text)} characters")
     log("=" * 70)
-    log(f"\nПолный текст на момент остановки ({len(full_text)} симв.):\n")
+    log(f"\nFull text at stopping point ({len(full_text)} symbols):\n")
     log(full_text)
 
 

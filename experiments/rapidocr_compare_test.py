@@ -57,7 +57,7 @@ def _headers() -> dict:
 def get_or_download(doc_id: int) -> str:
     path = str(RESULTS_DIR / f"doc_{doc_id}_original.pdf")
     if os.path.exists(path):
-        print(f"  OK  уже скачан ранее: {path}")
+        print(f"  OK  already downloaded: {path}")
         return path
     resp = requests.get(
         f"{PAPERLESS_URL}/api/documents/{doc_id}/download/",
@@ -66,7 +66,7 @@ def get_or_download(doc_id: int) -> str:
     resp.raise_for_status()
     with open(path, "wb") as f:
         f.write(resp.content)
-    print(f"  OK  скачан оригинал: {path}  ({len(resp.content)} байт)")
+    print(f"  OK  downloaded original: {path}  ({len(resp.content)} bytes)")
     return path
 
 
@@ -80,7 +80,7 @@ def _build_ocr_engine(lang_rec, label: str):
             "Rec.model_type": ModelType.MOBILE,
         })
     except Exception as e:
-        print(f"  !!  Не удалось загрузить модель '{label}' ({e}) — используем дефолтную")
+        print(f"  !!  Failed to load model '{label}' ({e}) — using default")
         return RapidOCR()
 
 
@@ -134,7 +134,7 @@ def patch_content(doc_id: int, text: str) -> None:
         headers=_headers(), json={"content": text}, timeout=30,
     )
     resp.raise_for_status()
-    print(f"  OK  content документа {doc_id} обновлён ({len(text)} символов)")
+    print(f"  OK  document {doc_id} content updated ({len(text)} characters)")
 
 
 def main():
@@ -145,11 +145,11 @@ def main():
 
     pdf_path = get_or_download(args.doc_id)
 
-    print("  ..  загружаем модели RapidOCR (latin + eslav)")
+    print("  ..  loading RapidOCR models (latin + eslav)")
     engine_latin = _build_ocr_engine(LangRec.LATIN if LangRec else None, "latin")
     engine_eslav = _build_ocr_engine(LangRec.ESLAV if LangRec else None, "eslav")
 
-    print("  ..  распознаём")
+    print("  ..  recognizing")
     text = extract_text_rapidocr(pdf_path, engine_latin, engine_eslav)
 
     print("\n" + "=" * 70)
@@ -159,12 +159,12 @@ def main():
     out_path = str(RESULTS_DIR / f"doc_{args.doc_id}_rapidocr.txt")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(text)
-    print(f"  OK  сохранено локально: {out_path}")
+    print(f"  OK  saved locally: {out_path}")
 
     if args.patch:
         patch_content(args.doc_id, text)
     else:
-        print("  i   content НЕ записан — перезапусти с --patch, если результат устраивает")
+        print("  i   content NOT written — re-run with --patch if the result is satisfactory")
 
 
 if __name__ == "__main__":

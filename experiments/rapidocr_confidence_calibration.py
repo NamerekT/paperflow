@@ -1,43 +1,41 @@
 r"""
 rapidocr_confidence_calibration.py
-────────────────────────────────────────────────────────────────────────────
-Calibrates RapidOCR confidence on the production pair of engines (latin +
-eslav — the same logic as in DocSorter.py and rapidocr_compare_test.py), to
-pick the escalation threshold into Gemma.
+───────────────────────────────────────────────────────────────────────────
+Calibrates RapidOCR confidence scores to determine when to escalate
+processing to Gemma. Uses the same logic as in DocSorter.py and
+rapidocr_compare_test.py for the latin + eslav engine pair.
 
 The ESCALATION RULE (see ESCALATE_MEAN / ESCALATE_P10 below) is evaluated
 NOT over the whole document at once, but PER PAGE SEPARATELY — "not the
-average temperature across the ward, but how many are in the morgue." An
-8-page document where 7 pages are perfect and 1 page is a handwritten
-answer looks fine when averaged over the whole document (the bad page
-drowns in the overall average), but gets caught immediately with per-page
-scoring. If even one page of a document fails mean < ESCALATE_MEAN OR
-p10 < ESCALATE_P10, the whole document is flagged ESCALATE in the summary.
+average across the ward, but how many are in the morgue." An 8-page document
+where 7 pages are perfect and 1 page is handwritten looks fine when averaged
+over the whole document (the bad page gets drowned out), but gets caught
+immediately with per-page scoring. If even one page of a document fails
+mean < ESCALATE_MEAN OR p10 < ESCALATE_P10, the whole document is flagged
+ESCALATE in the summary.
 
-HOW THIS IS BUILT (matters since this runs over a large number of files):
+HOW THIS IS BUILT (important for running over many files):
 
-  1. The file list lives in a separate text file, calibration_files.txt
-     (one path/id per line, # for comments). You can append new lines to it
-     and just rerun the script.
+  1. The file list lives in calibration_files.txt (one path/id per line, 
+      # for comments). Append new lines and just rerun the script.
 
   2. Results accumulate in calibration_results.jsonl — one JSON line per
-     document (path, category, per-page breakdown, all text lines and
-     their score). The line-delimited format is specifically so the run
-     can be interrupted partway through and restarted: the script finds
-     already-processed documents (by path) in this file and skips them.
+      document (path, category, per-page breakdown, all text lines and
+      their score). Line-delimited format allows interruption and restart:
+      the script finds already-processed documents (by path) in this file
+      and skips them.
 
   3. A summary is written to calibration_summary.txt on every run: a list
-     of documents flagged ESCALATE/ok, a per-category summary, and the
-     worst/best lines. This is the only file you need to send/show after
-     a run.
+      of documents flagged ESCALATE/ok, a per-category summary, and the
+      worst/best lines. This is the only file you need to send/show after
+      a run.
 
   4. SPEED: documents are processed in parallel (several processes at
-     once — by default all cores minus two). This is the only significant
-     speed lever available here: OCR is CPU-bound work (no downloading
-     models on the fly, they're already on disk), and processing one
-     document at a time uses only one CPU core, leaving the rest idle.
-     The Ryzen 5600 has 6 cores/12 threads, so a several-times-faster run
-     is basically free.
+      once — by default all cores minus two). This is the only significant
+      speed lever: OCR is CPU-bound (models are already on disk, no downloads),
+      and processing one document uses only one CPU core, leaving the rest idle.
+      The Ryzen 5600 has 6 cores/12 threads, so a several-times-faster run
+      is basically free.
 
 USAGE:
     python rapidocr_confidence_calibration.py
@@ -106,7 +104,7 @@ def _log(msg: str) -> None:
 
 def read_file_list(path: Path) -> list[str]:
     if not path.exists():
-        _log(f"  !!  Не найден {path} — создай его (см. пример в репозитории)")
+        _log(f"  !!  File not found: {path} — create it (see example in repository)")
         sys.exit(1)
     entries = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -121,7 +119,7 @@ def download_paperless_doc(doc_id: int) -> str:
     path = str(RESULTS_DIR / f"doc_{doc_id}_original.pdf")
     if os.path.exists(path):
         return path
-    _log(f"  ..  скачиваю doc_id={doc_id} из Paperless")
+    _log(f"  ..  downloading doc_id={doc_id} from Paperless")
     resp = requests.get(
         f"{PAPERLESS_URL}/api/documents/{doc_id}/download/",
         headers=_headers(), params={"original": "true"}, timeout=60,
@@ -145,7 +143,7 @@ def scan_folder_into_files_list(folder: str) -> int:
     of their content, appends new paths to calibration_files.txt."""
     folder_path = Path(folder)
     if not folder_path.is_dir():
-        _log(f"  !!  Папка не найдена: {folder}")
+        _log(f"  !!  Folder not found: {folder}")
         sys.exit(1)
 
     existing_entries = set(read_file_list(FILES_LIST)) if FILES_LIST.exists() else set()
@@ -174,7 +172,7 @@ def scan_folder_into_files_list(folder: str) -> int:
         try:
             h = file_sha256(pdf_path)
         except OSError as e:
-            _log(f"  !!  не читается {pdf_path}: {e}")
+            _log(f"  !!  unreadable {pdf_path}: {e}")
             continue
         if h in seen_hashes:
             continue
@@ -183,11 +181,11 @@ def scan_folder_into_files_list(folder: str) -> int:
 
     if new_paths:
         with open(FILES_LIST, "a", encoding="utf-8") as f:
-            f.write(f"\n# автоматически добавлено сканом папки: {folder}\n")
+            f.write(f"\n# automatically added by folder scan: {folder}\n")
             for p in new_paths:
                 f.write(p + "\n")
 
-    _log(f"  ..  найдено PDF всего: {len(all_pdfs)}, уникальных новых (по содержимому): {len(new_paths)}")
+    _log(f"  ..  PDFs found total: {len(all_pdfs)}, unique new (by content): {len(new_paths)}")
     return len(new_paths)
 
 
@@ -222,7 +220,7 @@ def build_ocr_engine(lang_rec, label: str):
             "Rec.model_type": ModelType.MOBILE,
         })
     except Exception as e:
-        _log(f"  !!  Не удалось загрузить модель '{label}' ({e}) — используем дефолтную")
+        _log(f"  !!  Failed to load model '{label}' ({e}) — falling back to default")
         return RapidOCR()
 
 
@@ -365,20 +363,20 @@ def write_summary(records: list[dict]) -> None:
     lines_out = []
     w = lines_out.append
 
-    w("Калибровка RapidOCR confidence — сводка")
-    w(f"Всего документов: {len(records)}")
-    w(f"Правило эскалации (постранично): mean < {ESCALATE_MEAN} ИЛИ p10 < {ESCALATE_P10}")
+    w("RapidOCR confidence calibration — summary")
+    w(f"Total documents: {len(records)}")
+    w(f"Escalation rule (per page): mean < {ESCALATE_MEAN} OR p10 < {ESCALATE_P10}")
     w("")
 
     escalate_list = []
-    w(f"{'':9s} {'категория':28s} {'файл':45s} {'стр':>4s} {'mean':>6s} {'p10':>6s} {'min':>6s}")
+    w(f"{'':9s} {'category':28s} {'file':45s} {'pg':>4s} {'mean':>6s} {'p10':>6s} {'min':>6s}")
     w("-" * 110)
     for r in records:
         all_lines = [ln for page in r.get("pages", []) for ln in page]
         arr = np.array([s for _, s in all_lines], dtype=float)
         name = Path(r["path"]).name
         if len(arr) == 0:
-            w(f"{'ERR':9s} {r['category']:28s} {name:45s}  ошибка: {r.get('error')}")
+            w(f"{'ERR':9s} {r['category']:28s} {name:45s}  error: {r.get('error')}")
             continue
         bad_pages = doc_needs_escalation(r)
         tag = f"ESCALATE" if bad_pages else "ok"
@@ -388,17 +386,17 @@ def write_summary(records: list[dict]) -> None:
             escalate_list.append((r, bad_pages))
 
     w("")
-    w(f"== ДОКУМЕНТЫ НА ЭСКАЛАЦИЮ В GEMMA ({len(escalate_list)} шт.) ==")
-    w("(хотя бы одна страница проваливает порог — показаны именно проблемные страницы)")
+    w(f"== DOCUMENTS TO ESCALATE TO GEMMA ({len(escalate_list)}) ==")
+    w("(at least one page fails the threshold — only the failing pages are shown)")
     for r, bad_pages in escalate_list:
         name = Path(r["path"]).name
         w(f"\n  [{r['category']}] {name}")
         for pno in bad_pages:
             mean, p10, mn, n = page_stats(r["pages"][pno - 1])
-            w(f"      стр.{pno}: n={n} mean={mean:.3f} p10={p10:.3f} min={mn:.3f}")
+            w(f"      pg.{pno}: n={n} mean={mean:.3f} p10={p10:.3f} min={mn:.3f}")
 
     w("")
-    w("== СВОДКА ПО КАТЕГОРИЯМ (по всем строкам, без учёта постраничности) ==")
+    w("== SUMMARY BY CATEGORY (all lines, ignoring the per-page split) ==")
     by_cat = defaultdict(list)
     for r in records:
         for page in r.get("pages", []):
@@ -410,7 +408,7 @@ def write_summary(records: list[dict]) -> None:
         w(f"{cat:32s} n={len(a):5d}  mean={a.mean():.3f}  p10={np.percentile(a,10):.3f}  min={a.min():.3f}")
 
     w("")
-    w("== ХУДШИЕ 40 СТРОК ПО ВСЕЙ ВЫБОРКЕ ==")
+    w("== WORST 40 LINES ACROSS THE WHOLE SAMPLE ==")
     flat = []
     for r in records:
         for page in r.get("pages", []):
@@ -420,20 +418,20 @@ def write_summary(records: list[dict]) -> None:
         w(f"{score:.3f}  [{cat}] {name}: {text!r}")
 
     w("")
-    w("== ЛУЧШИЕ 15 СТРОК (для контраста) ==")
+    w("== BEST 15 LINES (for contrast) ==")
     for score, cat, name, text in sorted(flat, key=lambda x: -x[0])[:15]:
         w(f"{score:.3f}  [{cat}] {name}: {text!r}")
 
     SUMMARY_TXT.write_text("\n".join(lines_out), encoding="utf-8")
-    _log(f"\n  OK  сводка записана: {SUMMARY_TXT}  (документов на эскалацию: {len(escalate_list)})")
+    _log(f"\n  OK  summary written: {SUMMARY_TXT}  (documents to escalate: {len(escalate_list)})")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scan-folder", default=None,
-                     help="рекурсивно найти все PDF в этой папке и дописать в calibration_files.txt")
+                     help="recursively find all PDFs in this folder and append them to calibration_files.txt")
     ap.add_argument("--workers", type=int, default=None,
-                     help="сколько процессов гонять параллельно (по умолчанию — ядра минус 2)")
+                     help="how many processes to run in parallel (default: cores minus 2)")
     args = ap.parse_args()
 
     if args.scan_folder:
@@ -450,11 +448,11 @@ def main():
         to_process.append((entry, path, category))
 
     if not to_process:
-        _log("  i   Все файлы из списка уже посчитаны — пересобираю только сводку.")
+        _log("  i   All files from the list are already processed — rebuilding the summary only.")
     else:
         n_workers = args.workers or max(1, (os.cpu_count() or 4) - 2)
-        _log(f"  ..  новых файлов к обработке: {len(to_process)} (уже готово: {len(already_done)})")
-        _log(f"  ..  параллельных процессов: {n_workers} (ядер в системе: {os.cpu_count()})")
+        _log(f"  ..  new files to process: {len(to_process)} (already done: {len(already_done)})")
+        _log(f"  ..  parallel processes: {n_workers} (cores in system: {os.cpu_count()})")
 
         started = time.monotonic()
         done_count = 0
@@ -474,8 +472,8 @@ def main():
                 remaining = (len(to_process) - done_count) / rate if rate > 0 else float("nan")
                 status = "OK" if not record.get("error") else "ERR"
                 _log(f"  {status}  [{done_count}/{len(to_process)}]  "
-                     f"({record.get('elapsed', '?')}с)  осталось ~{remaining/60:.1f} мин  "
-                     f"{Path(path).name}")
+                      f"({record.get('elapsed', '?')}s)  ~{remaining/60:.1f} min remaining  "
+                      f"{Path(path).name}")
 
     write_summary(load_all_results())
 

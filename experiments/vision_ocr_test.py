@@ -1,13 +1,13 @@
 """
 vision_ocr_test.py
-────────────────────────────────────────────────────────────────────────────
+───────────────────────────────────────────────────────────────────────────
 Tests OCR via a vision LLM (a model that "looks" at the whole image and
 understands the text semantically) instead of character-by-character OCR
 (RapidOCR/Tesseract) or a layout model (Docling). The idea: both Docling and
 RapidOCR messed up today, each in its own way — Docling confuses a
 decorated certificate for a picture and drops text, RapidOCR confuses
-Cyrillic with similar-looking Latin on homoglyph words (УКРАЇНА →
-VKPAIHA) and doesn't read handwritten text at all. A vision LLM (me,
+Cyrillic with similar-looking Latin on homoglyph words (Ukraine →
+vkpaIha) and doesn't read handwritten text at all. A vision LLM (me,
 reading a screenshot with my own eyes) doesn't trip up on any of these
 three things — it doesn't mistake a picture for text, it understands the
 whole document is in Ukrainian (rather than guessing per line/engine), and
@@ -17,13 +17,13 @@ FREE MODELS (checked on openrouter.ai/models, filtered by image-input +
 text-output + price=0, on August 1, 2026):
 
   nvidia/nemotron-nano-12b-v2-vl:free   — 12B, advertised as specifically
-                                           tuned for document intelligence
-                                           and OCR (leads OCRBench v2).
-                                           Default here.
+tuned for document intelligence
+and OCR (leads OCRBench v2).
+Default here.
   google/gemma-4-31b-it:free            — 31B, multilingual (140+
-                                           languages), also with an
-                                           emphasis on document
-                                           understanding. Fallback option.
+languages), also with an
+emphasis on document
+understanding. Fallback option.
 
 Free models on OpenRouter are rate-limited per day (usually tens of
 requests per day without topping up the balance) — more than enough for
@@ -35,16 +35,16 @@ parameter range in quantized form. Via Ollama (ollama.com), options to
 choose from:
 
   ollama pull glm-ocr          — 0.9B, only 2.2 GB, purpose-built for
-                                  document OCR (tables, stamps, complex
-                                  layouts), #1 on the OmniDocBench
-                                  benchmark. Very fast. DOWNSIDE: haven't
-                                  checked how well it knows Ukrainian — it
-                                  was clearly trained with an emphasis on
-                                  Chinese/English.
+document OCR (tables, stamps, complex
+layouts), #1 on the OmniDocBench
+benchmark. Very fast. DOWNSIDE: haven't
+checked how well it knows Ukrainian — it
+was clearly trained with an emphasis on
+Chinese/English.
   ollama pull deepseek-ocr      — 3B, 6.7 GB, also tuned for OCR.
   ollama pull qwen3-vl:8b       — 8B, a safer choice on languages: Qwen
-                                  has historically been strong at
-                                  multilingual OCR, including Cyrillic.
+has historically been strong at
+multilingual OCR, including Cyrillic.
   ollama pull minicpm-v4.5:8b   — 8B, also strong on multilingual scans.
 
 Ollama doesn't keep the model in VRAM permanently — it unloads it after
@@ -96,14 +96,13 @@ LITELLM_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 RENDER_DPI = 200
 
 PROMPT = (
-    "Распознай ВЕСЬ текст на этом изображении документа — печатный и "
-    "рукописный (документ может быть на украинском или немецком). Выведи "
-    "результат как Markdown, сохраняя структуру таблиц (используй таблицы "
-    "Markdown, если в документе есть таблица) и порядок блоков на странице. "
-    "Ничего не придумывай и не пропускай — если что-то неразборчиво, "
-    "отметь это как [нерозбірливо], но не оставляй пропуски молча. "
-    "Не добавляй собственных комментариев или пояснений — только "
-    "распознанный текст."
+    "Recognize ALL text in this document image — printed and handwritten "
+    "(document may be in Ukrainian or German). Output the result as Markdown, "
+    "preserving table structure (use Markdown tables if the document contains "
+    "tables) and block order on the page. Do not invent or skip anything — "
+    "if something is unreadable, mark it as [unreadable], but do not leave "
+    "silent skips. Do not add your own comments or explanations — only "
+    "recognized text."
 )
 
 
@@ -114,7 +113,7 @@ def _paperless_headers() -> dict:
 def get_or_download(doc_id: int) -> str:
     path = str(RESULTS_DIR / f"doc_{doc_id}_original.pdf")
     if os.path.exists(path):
-        log(f"  OK  уже скачан ранее: {path}")
+        log(f"  OK  already downloaded: {path}")
         return path
     resp = requests.get(
         f"{PAPERLESS_URL}/api/documents/{doc_id}/download/",
@@ -123,7 +122,7 @@ def get_or_download(doc_id: int) -> str:
     resp.raise_for_status()
     with open(path, "wb") as f:
         f.write(resp.content)
-    log(f"  OK  скачан оригинал: {path}  ({len(resp.content)} байт)")
+    log(f"  OK  downloaded original: {path}  ({len(resp.content)} bytes")
     return path
 
 
@@ -168,8 +167,8 @@ def ocr_page_with_vision_llm(image_b64: str, model: str, timeout: int, max_retri
 
     for attempt in range(1, max_retries + 1):
         started = time.monotonic()
-        log(f"       -> попытка {attempt}/{max_retries}: отправляю запрос "
-            f"({len(image_b64) // 1024} КБ base64), жду ответ (таймаут {timeout}с)...")
+        log(f"       -> attempt {attempt}/{max_retries}: sending request "
+            f"({len(image_b64) // 1024} KB base64), waiting for response (timeout {timeout}s)...")
         try:
             resp = requests.post(
                 f"{LITELLM_URL}/chat/completions",
@@ -182,13 +181,13 @@ def ocr_page_with_vision_llm(image_b64: str, model: str, timeout: int, max_retri
             )
         except requests.exceptions.ReadTimeout:
             elapsed = time.monotonic() - started
-            log(f"       <- нет ответа за {elapsed:.0f}с (таймаут). Бесплатный бэкенд "
-                f"перегружен и просто не отвечает, а не медленно генерирует — "
-                f"это подтверждается быстрым 429 у другой модели. Пробую снова...")
+            log(f"       <- no response for {elapsed:.0f}s (timeout). Free backend "
+                f"is overloaded and just not responding, not generating slowly — "
+                f"this is confirmed by a quick 429 from another model. Trying again...")
             continue
 
         elapsed = time.monotonic() - started
-        log(f"       <- ответ за {elapsed:.1f}с, статус {resp.status_code}")
+        log(f"       <- response for {elapsed:.1f}s, status {resp.status_code}")
 
         if resp.status_code == 429:
             # Print the response body — it usually spells out exactly what
@@ -196,17 +195,16 @@ def ocr_page_with_vision_llm(image_b64: str, model: str, timeout: int, max_retri
             log(f"       !! 429 Too Many Requests: {resp.text[:500]}")
             wait = float(resp.headers.get("Retry-After", 5 * attempt))
             if attempt < max_retries:
-                log(f"       .. жду {wait:.0f}с и пробую снова")
+                log(f"       .. waiting {wait:.0f}s and trying again")
                 time.sleep(wait)
                 continue
             raise RuntimeError(
-                f"{model}: упёрлись в rate limit после {max_retries} попыток. "
-                f"Это дневной/минутный лимит бесплатных моделей на твоём ключе OpenRouter "
-                f"(общий с обычными вызовами классификации из DocSorter — та же LITELLM_KEY). "
-                f"Проверь usage/лимиты на openrouter.ai/activity. Известный обходной путь: "
-                f"после разового пополнения баланса на $10 OpenRouter поднимает дневной лимит "
-                f"бесплатных моделей с ~50 до ~1000 запросов в день, даже если продолжаешь "
-                f"пользоваться исключительно :free моделями."
+                f"{model}: hit rate limit after {max_retries} attempts. "
+                f"This is the daily/minute limit for free models on your OpenRouter key "
+                f"(shared with regular classification calls from DocSorter — same LITELLM_KEY). "
+                f"Check usage/limits at openrouter.ai/activity. Known workaround: "
+                f"after topping up balance by $10 once, OpenRouter raises daily free model limit "
+                f"from ~50 to ~1000 requests per day, even if you keep using :free models only."
             )
 
         if resp.status_code >= 400:
@@ -214,10 +212,10 @@ def ocr_page_with_vision_llm(image_b64: str, model: str, timeout: int, max_retri
 
         data = resp.json()
         if "choices" not in data:
-            raise RuntimeError(f"Неожиданный ответ от {model}: {data}")
+            raise RuntimeError(f"Unexpected response from {model}: {data}")
         return data["choices"][0]["message"]["content"].strip()
 
-    raise RuntimeError(f"{model}: не удалось получить ответ за {max_retries} попыток")
+    raise RuntimeError(f"{model}: failed to get response after {max_retries} attempts")
 
 
 def patch_content(doc_id: int, text: str) -> None:
@@ -226,7 +224,7 @@ def patch_content(doc_id: int, text: str) -> None:
         headers=_paperless_headers(), json={"content": text}, timeout=30,
     )
     resp.raise_for_status()
-    log(f"  OK  content документа {doc_id} обновлён ({len(text)} символов)")
+    log(f"  OK  document {doc_id} content updated ({len(text)} characters)")
 
 
 def main():
@@ -234,19 +232,19 @@ def main():
     ap.add_argument("doc_id", type=int)
     ap.add_argument("--model", default="nvidia/nemotron-nano-12b-v2-vl:free")
     ap.add_argument("--timeout", type=int, default=90,
-                     help="сек ожидания ответа от модели на ОДНУ страницу (по умолчанию 90)")
+                     help="seconds waiting for model response on ONE page (default: 90)")
     ap.add_argument("--patch", action="store_true")
     args = ap.parse_args()
 
     pdf_path = get_or_download(args.doc_id)
 
-    log("  ..  рендерим страницы PDF в картинки")
+    log("  ..  rendering PDF pages to images")
     images = render_pages_base64(pdf_path)
-    log(f"       {len(images)} стр., модель: {args.model}")
+    log(f"       {len(images)} pages, model: {args.model}")
 
     page_texts = []
     for i, img in enumerate(images):
-        log(f"  ..  OCR страницы {i + 1}/{len(images)}")
+        log(f"  ..  OCR page {i + 1}/{len(images)}")
         page_texts.append(ocr_page_with_vision_llm(img, args.model, args.timeout))
 
     full_text = "\n\n---\n\n".join(page_texts)
@@ -258,12 +256,12 @@ def main():
     out_path = str(RESULTS_DIR / f"doc_{args.doc_id}_vision.md")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(full_text)
-    log(f"  OK  сохранено локально: {out_path}")
+    log(f"  OK  saved locally: {out_path}")
 
     if args.patch:
         patch_content(args.doc_id, full_text)
     else:
-        log("  i   content НЕ записан — перезапусти с --patch, если результат устраивает")
+        log("  i   content NOT written — re-run with --patch if the result is acceptable")
 
 
 if __name__ == "__main__":

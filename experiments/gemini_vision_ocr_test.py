@@ -56,15 +56,14 @@ GEMINI_URL     = "https://generativelanguage.googleapis.com/v1beta/models"
 RENDER_DPI = 200
 
 PROMPT = (
-    "Распознай ВЕСЬ текст на этом изображении документа — печатный и "
-    "рукописный (документ может быть на украинском или немецком). Выведи "
-    "результат простым текстом, сохраняя порядок блоков на странице и "
-    "структуру таблиц (можно через табуляцию или ' | '). "
-    "Ничего не придумывай и не пропускай — если что-то неразборчиво, "
-    "отметь это как [нерозбірливо], но не оставляй пропуски молча и не "
-    "подставляй правдоподобные, но выдуманные слова вместо реального текста. "
-    "Не добавляй собственных комментариев или пояснений — только "
-    "распознанный текст."
+    "Recognize ALL text in this document image — printed and handwritten "
+    "(document may be in Ukrainian or German). Output the result as plain text, "
+    "preserving the order of blocks on the page and table structure "
+    "(can use tabs or ' | ' separators). Do not invent or skip anything — "
+    "if something is illegible, mark it as [unreadable], but do not leave "
+    "silent skips and do not substitute realistic, but invented words "
+    "instead of real text. Do not add your own comments or explanations — "
+    "only recognized text."
 )
 
 
@@ -79,7 +78,7 @@ def _paperless_headers() -> dict:
 def get_or_download(doc_id: int) -> str:
     path = str(RESULTS_DIR / f"doc_{doc_id}_original.pdf")
     if os.path.exists(path):
-        log(f"  OK  уже скачан ранее: {path}")
+        log(f"  OK  already downloaded: {path}")
         return path
     resp = requests.get(
         f"{PAPERLESS_URL}/api/documents/{doc_id}/download/",
@@ -88,7 +87,7 @@ def get_or_download(doc_id: int) -> str:
     resp.raise_for_status()
     with open(path, "wb") as f:
         f.write(resp.content)
-    log(f"  OK  скачан оригинал: {path}  ({len(resp.content)} байт)")
+    log(f"  OK  downloaded original: {path}  ({len(resp.content)} bytes")
     return path
 
 
@@ -121,8 +120,8 @@ def ocr_page_with_gemini(image_b64: str, model: str, timeout: int, max_retries: 
 
     for attempt in range(1, max_retries + 1):
         started = time.monotonic()
-        log(f"       -> попытка {attempt}/{max_retries}: отправляю запрос "
-            f"({len(image_b64) // 1024} КБ base64), таймаут {timeout}с...")
+        log(f"       -> attempt {attempt}/{max_retries}: sending request "
+            f"({len(image_b64) // 1024} KB base64), timeout {timeout}s...")
         try:
             resp = requests.post(
                 url,
@@ -135,20 +134,20 @@ def ocr_page_with_gemini(image_b64: str, model: str, timeout: int, max_retries: 
             )
         except requests.exceptions.ReadTimeout:
             elapsed = time.monotonic() - started
-            log(f"       <- нет ответа за {elapsed:.0f}с (таймаут). Пробую снова...")
+            log(f"       <- No response for {elapsed:.0f}s (timeout). Trying again...")
             continue
 
         elapsed = time.monotonic() - started
-        log(f"       <- ответ за {elapsed:.1f}с, статус {resp.status_code}")
+        log(f"       <- response for {elapsed:.1f}s, status {resp.status_code}")
 
         if resp.status_code == 429:
             log(f"       !! 429: {resp.text[:500]}")
             wait = 10 * attempt
             if attempt < max_retries:
-                log(f"       .. жду {wait}с и пробую снова")
+                log(f"       .. waiting {wait}s and trying again")
                 time.sleep(wait)
                 continue
-            raise RuntimeError(f"{model}: rate limit после {max_retries} попыток")
+            raise RuntimeError(f"{model}: hit rate limit after {max_retries} attempts")
 
         if resp.status_code >= 400:
             raise RuntimeError(f"{model}: HTTP {resp.status_code} — {resp.text[:800]}")
@@ -171,9 +170,9 @@ def ocr_page_with_gemini(image_b64: str, model: str, timeout: int, max_retries: 
                 text = "".join(p.get("text", "") for p in parts).strip()
             return text
         except (KeyError, IndexError) as e:
-            raise RuntimeError(f"Неожиданный ответ от {model}: {data}") from e
+            raise RuntimeError(f"Unexpected response from {model}: {data}") from e
 
-    raise RuntimeError(f"{model}: не удалось получить ответ за {max_retries} попыток")
+    raise RuntimeError(f"{model}: failed to get response after {max_retries} attempts")
 
 
 def patch_content(doc_id: int, text: str) -> None:
@@ -182,7 +181,7 @@ def patch_content(doc_id: int, text: str) -> None:
         headers=_paperless_headers(), json={"content": text}, timeout=30,
     )
     resp.raise_for_status()
-    log(f"  OK  content документа {doc_id} обновлён ({len(text)} символов)")
+    log(f"  OK  document {doc_id} content updated ({len(text)} characters)")
 
 
 def main():
@@ -193,19 +192,19 @@ def main():
     ap.add_argument("--patch", action="store_true")
     args = ap.parse_args()
 
-    if "ВСТАВЬ_СЮДА" in GEMINI_API_KEY:
-        log("  !!  Сначала впиши свой ключ с https://aistudio.google.com/apikey в GEMINI_API_KEY")
+    if "INSERT_HERE" in GEMINI_API_KEY:
+        log("  !!  First enter your key from https://aistudio.google.com/apikey into GEMINI_API_KEY")
         sys.exit(1)
 
     pdf_path = get_or_download(args.doc_id)
 
-    log("  ..  рендерим страницы PDF в картинки")
+    log("  ..  rendering PDF pages to images")
     images = render_pages_base64(pdf_path)
-    log(f"       {len(images)} стр., модель: {args.model}")
+    log(f"       {len(images)} pages, model: {args.model}")
 
     page_texts = []
     for i, img in enumerate(images):
-        log(f"  ..  OCR страницы {i + 1}/{len(images)}")
+        log(f"  ..  OCR page {i + 1}/{len(images)}")
         page_texts.append(ocr_page_with_gemini(img, args.model, args.timeout))
 
     full_text = "\n\n---\n\n".join(page_texts)
@@ -217,12 +216,12 @@ def main():
     out_path = str(RESULTS_DIR / f"doc_{args.doc_id}_gemini.md")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(full_text)
-    log(f"  OK  сохранено локально: {out_path}")
+    log(f"  OK  saved locally: {out_path}")
 
     if args.patch:
         patch_content(args.doc_id, full_text)
     else:
-        log("  i   content НЕ записан — перезапусти с --patch, если результат устраивает")
+        log("  i   content NOT written — re-run with --patch if the result is satisfactory")
 
 
 if __name__ == "__main__":
