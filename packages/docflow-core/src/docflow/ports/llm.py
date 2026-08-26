@@ -1,7 +1,7 @@
 """The model gateway port and its error taxonomy.
 
 This replaces four hand-written copies of the same retry loop - one each for
-page transcription, orientation, classification and deadline extraction. They
+page transcription, classification and deadline extraction. They
 had drifted: different retry counts, different sets of caught exceptions, and
 three separate copies of the same line that strips Markdown code fences off a
 JSON reply. The differences were not decisions; they were the result of the

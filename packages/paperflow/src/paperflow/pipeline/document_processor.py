@@ -6,11 +6,11 @@ job both call `DocumentProcessor.process` and nothing else, so the two paths can
 the way a live upload and a batch script once did.
 
 Recoverable failures are swallowed here, each with its own narrow `try`, exactly where
-the old code drew the line: a rotation that could not be applied, a Frist that could not
-be written, a reminder that could not be created, none of them should undo an otherwise
-successful write. What is NOT caught here - the engine raising, the archive being
-unreachable for the main write - is deliberate: that belongs to the caller, which decides
-what an unrecoverable failure means for the queue.
+the old code drew the line: a Frist that could not be written, a reminder that could not
+be created, none of them should undo an otherwise successful write. What is NOT caught
+here - the engine raising, the archive being unreachable for the main write - is
+deliberate: that belongs to the caller, which decides what an unrecoverable failure means
+for the queue.
 """
 
 import logging
@@ -146,19 +146,6 @@ class DocumentProcessor:
         resolved: ResolvedClassification,
         log: DocumentLogAdapter,
     ) -> None:
-        # Rotation happens FIRST, in place, on the already-stored document: Paperless may
-        # rebuild the file to apply it, and the final content has to land AFTER that
-        # rebuild, not be overwritten by it.
-        if analysis.cascade.page_rotations:
-            log.info(f"rotating pages: {dict(analysis.cascade.page_rotations)}")
-            try:
-                self._documents.rotate_pages(doc_id, dict(analysis.cascade.page_rotations))
-            except PaperlessError as exc:
-                log.error(
-                    f"could not rotate pages in Paperless: {exc} "
-                    "(the text was still read from the corrected orientation)"
-                )
-
         values = cascade_field_values(
             self._fields, self._custom_fields, analysis.cascade, mark_done=True
         )

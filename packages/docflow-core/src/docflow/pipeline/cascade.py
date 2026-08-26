@@ -16,7 +16,6 @@ import numpy as np
 
 from docflow.domain.models import CascadeResult, ContentSource, OcrLine, PageReport, PageStats
 from docflow.domain.policies import EscalationPolicy, NativeTextConfig
-from docflow.llm_tasks.orientation import OrientationTask
 from docflow.llm_tasks.vision_ocr import VisionOcrTask
 from docflow.pipeline.native_text import extract_native_text, is_native_text_document
 from docflow.ports.ocr import PageOcr
@@ -45,7 +44,6 @@ class OcrCascade:
         self,
         ocr: PageOcr,
         vision: VisionOcrTask,
-        orientation: OrientationTask,
         *,
         render_dpi: int,
         jpeg_quality: int,
@@ -54,7 +52,6 @@ class OcrCascade:
     ) -> None:
         self._ocr = ocr
         self._vision = vision
-        self._orientation = orientation
         self._render_dpi = render_dpi
         self._jpeg_quality = jpeg_quality
         self._escalation = escalation
@@ -63,7 +60,6 @@ class OcrCascade:
     def run(self, doc: PdfDocument) -> CascadeResult:
         page_texts: list[str] = []
         page_reports: list[PageReport] = []
-        page_rotations: dict[int, int] = {}
         means: list[float] = []
         p10s: list[float] = []
         any_escalated = False
@@ -90,31 +86,6 @@ class OcrCascade:
                 p10s.append(1.0)
                 any_local_kept = True
                 continue
-
-            # Orientation is checked BEFORE OCR, as its own narrow model call - see
-            # docflow.llm_tasks.orientation. The scanner does not rotate wrongly-fed
-            # sheets on its own. set_rotation() corrects the render IMMEDIATELY for
-            # every later use of this page - both the OCR read below and a vision
-            # escalation, if one turns out to be needed - because fitz honours
-            # /Rotate when rendering.
-            rotation = self._orientation.detect(
-                page.render_jpeg_b64(dpi=self._render_dpi, quality=self._jpeg_quality)
-            )
-            if rotation:
-                # `rotation` is a RELATIVE correction ("turn what is currently
-                # rendered by this much more"); the caller needs that same relative
-                # value for the archive's own rotate-in-place call, which is
-                # likewise relative to whatever is currently stored. This page
-                # handle needs something different: its rotation is set in
-                # ABSOLUTE terms, so it is added to the page's current rotation here
-                # rather than being applied directly.
-                new_rotation = (page.rotation + rotation) % 360
-                logger.info(
-                    f"p.{page.number}: detected a {rotation} degree rotation - "
-                    f"correcting before OCR (local /Rotate={new_rotation})"
-                )
-                page.set_rotation(new_rotation)
-                page_rotations[page.number] = rotation
 
             lines = self._ocr.read_lines(page, dpi=self._render_dpi)
             stats = _page_stats(lines)
@@ -146,14 +117,13 @@ class OcrCascade:
                 any_local_kept = True
 
         return self._finish(
-            page_texts, page_reports, page_rotations, means, p10s, any_escalated, any_local_kept
+            page_texts, page_reports, means, p10s, any_escalated, any_local_kept
         )
 
     @staticmethod
     def _finish(
         page_texts: list[str],
         page_reports: list[PageReport],
-        page_rotations: dict[int, int],
         means: list[float],
         p10s: list[float],
         any_escalated: bool,
@@ -176,5 +146,4 @@ class OcrCascade:
             avg_confidence_pct=round(float(np.mean(means)) * 100, 1) if means else None,
             avg_accuracy_pct=round(float(np.mean(p10s)) * 100, 1) if p10s else None,
             page_reports=tuple(page_reports),
-            page_rotations=page_rotations,
         )

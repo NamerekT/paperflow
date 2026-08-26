@@ -151,38 +151,5 @@ class PaperlessDocuments:
         ).json()
         return updated
 
-    def rotate_pages(self, doc_id: int, page_rotations: dict[int, int]) -> None:
-        """Rotate specific pages of a stored document, in place.
-
-        Uses the edit endpoint rather than the rotate one, which only turns an
-        entire document by a single angle; `update_document` keeps the same
-        document id and history instead of producing a second copy.
-
-        `page_rotations` maps a 1-based page number to degrees clockwise, and
-        the value is a RELATIVE correction - "turn it a further X" - not an
-        absolute rotation, unlike `fitz.Page.set_rotation()`. Confirmed
-        empirically: a page stored at 90 sent a rotation of 270 ended up at 0
-        (90 + 270 mod 360), rendered upright.
-
-        Asynchronous, like uploading. Waiting for the task matters: the archive
-        may still be rebuilding the file, and a metadata write racing that
-        rebuild is how content gets overwritten.
-        """
-        operations = [
-            {"page": page, "rotate": degrees}
-            for page, degrees in sorted(page_rotations.items())
-        ]
-        response = self._transport.post(
-            "/api/documents/edit_pdf/",
-            versioned=True,
-            json={"documents": [doc_id], "operations": operations, "update_document": True},
-        ).json()
-
-        task_id = response.get("result")
-        if task_id:
-            self._tasks.wait_for(
-                task_id, timeout=self._transport.settings.task_wait_timeout
-            )
-
     def url_for(self, doc_id: int) -> str:
         return self._transport.document_url(doc_id)

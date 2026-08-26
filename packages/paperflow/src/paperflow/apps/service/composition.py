@@ -14,7 +14,6 @@ from docflow.adapters.ocr.rapidocr_dual import RapidOcrDualEngine
 from docflow.adapters.pdf.fitz_document import FitzOpener
 from docflow.llm_tasks.classify import ClassifyTask
 from docflow.llm_tasks.frist import FristTask
-from docflow.llm_tasks.orientation import OrientationTask
 from docflow.llm_tasks.vision_ocr import VisionOcrTask
 from docflow.pipeline.cascade import OcrCascade
 from docflow.pipeline.document_workflow import DocumentWorkflow
@@ -97,7 +96,6 @@ def build(settings: Settings) -> ServiceContext:
     logger.info("loading the RapidOCR models (latin + eslav) - may take a while on first run")
     ocr_engine = RapidOcrDualEngine()
     vision = VisionOcrTask(llm_client, llm_settings.vision)
-    orientation = OrientationTask(llm_client, llm_settings.orientation)
     classify = ClassifyTask(
         llm_client,
         llm_settings.classifier,
@@ -111,7 +109,6 @@ def build(settings: Settings) -> ServiceContext:
     cascade = OcrCascade(
         ocr_engine,
         vision,
-        orientation,
         render_dpi=settings.cascade.render_dpi,
         jpeg_quality=settings.cascade.jpeg_quality,
         escalation=settings.cascade.escalation,

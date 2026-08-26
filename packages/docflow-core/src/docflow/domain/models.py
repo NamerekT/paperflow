@@ -7,7 +7,6 @@ once, where a typo surfaced as a KeyError in production, mid-document, after
 the expensive OCR had already been paid for.
 """
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
@@ -73,9 +72,6 @@ class CascadeResult:
     avg_confidence_pct: float | None
     avg_accuracy_pct: float | None
     page_reports: tuple[PageReport, ...]
-    #: page number -> rotation in degrees clockwise, relative to how the page
-    #: is currently stored. Only pages that need turning appear here.
-    page_rotations: Mapping[int, int]
 
 
 @dataclass(frozen=True, slots=True)

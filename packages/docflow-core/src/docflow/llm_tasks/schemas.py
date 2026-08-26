@@ -5,8 +5,8 @@ places where untrusted input crosses into the system: a model's output is not
 under our control no matter how firmly the prompt asks for a shape.
 
 Each model below replaces a hand-written check - a `len(value) == 10 and
-value[4] == "-"` for a date, an `in (0, 90, 180, 270)` for an angle - that had
-to be kept in step with the prompt by hand.
+value[4] == "-"` for a date - that had to be kept in step with the prompt by
+hand.
 """
 
 # Imported as a module rather than `from datetime import date`: two of the
@@ -15,21 +15,6 @@ to be kept in step with the prompt by hand.
 import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
-
-
-class OrientationDraft(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    rotate: int = Field(default=0)
-
-    def normalised(self) -> int:
-        """The angle, or 0 if the model returned something off-axis.
-
-        Anything outside the four quarter turns is meaningless to a PDF page
-        rotation, and guessing at a nearest value would turn a page sideways
-        with more confidence than the answer deserves.
-        """
-        return self.rotate if self.rotate in (0, 90, 180, 270) else 0
 
 
 class FristDraft(BaseModel):

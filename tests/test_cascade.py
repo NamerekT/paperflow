@@ -2,9 +2,8 @@
 not good enough, plus the "Content by"/"Mixed Created by"/confidence bookkeeping.
 
 Exercised entirely against fakes - no PDF library, no model gateway - because the
-decisions being pinned (when to escalate, how the three `content_by` labels are chosen,
-what a rotation correction does to the page handle) are pure orchestration over the
-ports and belong to this module alone.
+decisions being pinned (when to escalate, how the three `content_by` labels are chosen)
+are pure orchestration over the ports and belong to this module alone.
 """
 
 from docflow.domain.models import ContentSource, OcrLine
@@ -16,14 +15,8 @@ ESCALATION = EscalationPolicy(mean=0.95, p10=0.95)
 
 
 class FakePage:
-    def __init__(self, number, rotation=0):
+    def __init__(self, number):
         self.number = number
-        self.rotation = rotation
-        self.rotations_set: list[int] = []
-
-    def set_rotation(self, degrees):
-        self.rotation = degrees
-        self.rotations_set.append(degrees)
 
     def text(self):
         return ""  # short -> never trusted as native text in these tests
@@ -74,21 +67,10 @@ class FakeVision:
         return f"vision text for {image_b64}", self._label
 
 
-class FakeOrientation:
-    def __init__(self, rotation_by_page=None):
-        self._rotation_by_page = rotation_by_page or {}
-        self.calls = []
-
-    def detect(self, image_b64):
-        self.calls.append(image_b64)
-        return self._rotation_by_page.get(image_b64, 0)
-
-
-def make_cascade(ocr, vision=None, orientation=None, *, escalation=ESCALATION):
+def make_cascade(ocr, vision=None, *, escalation=ESCALATION):
     return OcrCascade(
         ocr,
         vision or FakeVision(),
-        orientation or FakeOrientation(),
         render_dpi=300,
         jpeg_quality=85,
         escalation=escalation,
@@ -155,31 +137,6 @@ def test_mixed_document_reports_both_sources_per_page():
     assert result.content_by == ContentSource.MIXED
     assert result.mixed_by == "p.1: RapidOCR\np.2: Gemma 31B (LiteLLM: test)"
     assert result.content == "hallo welt\n\n---\n\nvision text for jpeg-p2"
-
-
-def test_rotation_is_applied_before_ocr_and_recorded_relative():
-    page = FakePage(1, rotation=90)
-    doc = FakeDocument([page])
-    ocr = FakeOcr({1: good_lines()})
-    orientation = FakeOrientation({"jpeg-p1": 180})
-
-    result = make_cascade(ocr, orientation=orientation).run(doc)
-
-    # Absolute /Rotate on the page handle is current (90) + detected (180) = 270.
-    assert page.rotations_set == [270]
-    # What the archive needs is the relative correction the model actually reported.
-    assert result.page_rotations == {1: 180}
-
-
-def test_no_rotation_detected_leaves_the_page_untouched():
-    page = FakePage(1, rotation=0)
-    doc = FakeDocument([page])
-    ocr = FakeOcr({1: good_lines()})
-
-    result = make_cascade(ocr).run(doc)
-
-    assert page.rotations_set == []
-    assert result.page_rotations == {}
 
 
 def test_confidence_and_accuracy_are_averaged_as_percentages():

@@ -59,17 +59,6 @@ def test_a_genuine_digital_contract_is_trusted_as_native_text():
         doc.close()
 
 
-def test_page_rotation_round_trips_through_the_handle():
-    doc = FitzOpener().open(DATA / "Vertragsunterlagen.pdf")
-    try:
-        page = next(doc.pages())
-        assert page.rotation == 0
-        page.set_rotation(90)
-        assert page.rotation == 90
-    finally:
-        doc.close()
-
-
 def test_render_jpeg_b64_produces_a_non_empty_base64_string():
     doc = FitzOpener().open(DATA / "Vertragsunterlagen.pdf")
     try:

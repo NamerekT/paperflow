@@ -38,7 +38,7 @@ def make_fields() -> CustomFieldSet:
     )
 
 
-def make_analysis(*, frist=None, page_rotations=None, mixed_by=None) -> DocumentAnalysis:
+def make_analysis(*, frist=None, mixed_by=None) -> DocumentAnalysis:
     cascade = CascadeResult(
         content="hallo welt",
         content_by=ContentSource.RAPIDOCR,
@@ -46,7 +46,6 @@ def make_analysis(*, frist=None, page_rotations=None, mixed_by=None) -> Document
         avg_confidence_pct=99.0,
         avg_accuracy_pct=98.0,
         page_reports=(PageReport(page=1, source="RapidOCR", mean=0.99, p10=0.98),),
-        page_rotations=page_rotations or {},
     )
     classification = DocumentClassification(
         title="Bescheid Januar 2026",
@@ -63,8 +62,6 @@ class FakeDocuments:
     def __init__(self, meta_by_id=None):
         self.meta_by_id = meta_by_id or {}
         self.downloaded: list[int] = []
-        self.rotated: list[tuple[int, dict]] = []
-        self.rotate_error: Exception | None = None
 
     def get(self, doc_id):
         return self.meta_by_id.get(doc_id, {})
@@ -73,11 +70,6 @@ class FakeDocuments:
         self.downloaded.append(doc_id)
         dest.write_bytes(b"%PDF-1.7 fake")
         return dest
-
-    def rotate_pages(self, doc_id, page_rotations):
-        if self.rotate_error is not None:
-            raise self.rotate_error
-        self.rotated.append((doc_id, dict(page_rotations)))
 
     def url_for(self, doc_id):
         return f"https://paperless.test/documents/{doc_id}/details"
@@ -212,28 +204,6 @@ def test_dry_run_does_not_write_anything(tmp_path):
 
     assert parts["documents"].downloaded == [1]
     assert parts["custom_fields"].patches == []
-    assert parts["documents"].rotated == []
-
-
-def test_page_rotations_are_sent_before_the_main_write(tmp_path):
-    analysis = make_analysis(page_rotations={1: 180})
-    processor, parts = make_processor(analysis, tmp_path=tmp_path)
-
-    processor.process(1, force=False)
-
-    assert parts["documents"].rotated == [(1, {1: 180})]
-    # rotation happened, then the main content/classification write followed
-    assert len(parts["custom_fields"].patches) == 1
-
-
-def test_a_rotation_failure_does_not_prevent_the_main_write(tmp_path):
-    analysis = make_analysis(page_rotations={1: 90})
-    processor, parts = make_processor(analysis, tmp_path=tmp_path)
-    parts["documents"].rotate_error = PaperlessError("tunnel down")
-
-    processor.process(1, force=False)  # must not raise
-
-    assert len(parts["custom_fields"].patches) == 1
 
 
 def test_frist_is_written_as_a_separate_patch_and_creates_a_reminder(tmp_path):

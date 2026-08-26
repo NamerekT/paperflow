@@ -24,13 +24,6 @@ class FitzPageHandle:
         self._page = page
         self.number = number
 
-    @property
-    def rotation(self) -> int:
-        return int(self._page.rotation)
-
-    def set_rotation(self, degrees: int) -> None:
-        self._page.set_rotation(degrees)
-
     def text(self) -> str:
         return str(self._page.get_text()).strip()
 

@@ -86,10 +86,9 @@ class LlmTaskConfig:
 
     One of these per job rather than one global model, because the jobs have
     genuinely different economics: page transcription is the expensive one and
-    runs on a large vision model, while orientation detection is a single
-    cheap question asked once per scanned page. Giving them separate models
-    also gives them separate quota, so a day of heavy OCR cannot starve
-    classification.
+    runs on a large vision model, while deadline extraction and classification
+    are single cheap calls per document. Giving them separate models also gives
+    them separate quota, so a day of heavy OCR cannot starve classification.
     """
 
     model: str
@@ -115,7 +114,6 @@ class LlmSettings:
     base_url: str
     api_key: str
     vision: LlmTaskConfig
-    orientation: LlmTaskConfig
     frist: LlmTaskConfig
     classifier: LlmTaskConfig
 
@@ -159,15 +157,6 @@ class LlmSettings:
                 # variant shows up that the prompt does not cover.
                 max_tokens=8192,
                 frequency_penalty=0.3,
-            ),
-            orientation=LlmTaskConfig(
-                model=env.optional("ORIENTATION_LLM_MODEL", "google-gemini-3.5-flash-lite"),
-                temperature=0.0,
-                timeout_seconds=env.number("LLM_ORIENTATION_TIMEOUT", 30.0),
-                # Three, not four: this is the cheap best-effort call, and its
-                # failure costs a page that stays as it was rather than a
-                # document that fails.
-                retry=RetryPolicy(attempts=3),
             ),
             frist=LlmTaskConfig(
                 model=env.optional("FRIST_LLM_MODEL", "google-gemini-3.5-flash-lite"),

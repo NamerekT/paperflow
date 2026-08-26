@@ -1,4 +1,4 @@
-"""Opening, rendering and rotating PDF pages, independent of which library does it.
+"""Opening and rendering PDF pages, independent of which library does it.
 
 Pulling this out of the pipeline is what lets `docflow.pipeline.native_text` and
 `docflow.pipeline.cascade` be exercised with a handful of in-memory fakes rather
@@ -17,21 +17,6 @@ if TYPE_CHECKING:
 
 class PageHandle(Protocol):
     number: int  # 1-based, as shown to a user
-
-    @property
-    def rotation(self) -> int:
-        """The page's current /Rotate value: absolute degrees clockwise."""
-        ...
-
-    def set_rotation(self, degrees: int) -> None:
-        """Set the page's absolute /Rotate.
-
-        Affects every later render of this page - a correction made here is
-        visible to both the OCR engine's own render and a subsequent escalation
-        to the vision model, without either having to be told about it
-        separately.
-        """
-        ...
 
     def text(self) -> str:
         """The page's embedded text layer, stripped of surrounding whitespace.

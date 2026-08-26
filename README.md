@@ -120,12 +120,11 @@ instance, a self-hosted LiteLLM proxy that fronts one or more model providers, a
 reminders) Google Tasks. See `.env.example` for the shape of that configuration; there is no
 hardcoded endpoint anywhere in `packages/`.
 
-Two independent LLM tasks run through the proxy with separate models and separate quota, so a
+Independent LLM tasks run through the proxy with separate models and separate quota, so a
 heavy day of OCR escalation cannot starve classification or vice versa: page-transcription
-escalation uses a larger vision-capable model, while orientation detection, deadline extraction
-and classification use faster, cheaper models. Which model handles which task is entirely a
-`.env` setting (`VISION_PROXY_MODEL`, `ORIENTATION_LLM_MODEL`, `FRIST_LLM_MODEL`,
-`CLASSIFIER_LLM_MODEL`).
+escalation uses a larger vision-capable model, while deadline extraction and classification
+use faster, cheaper models. Which model handles which task is entirely a `.env` setting
+(`VISION_PROXY_MODEL`, `FRIST_LLM_MODEL`, `CLASSIFIER_LLM_MODEL`).
 
 ## Development
 
@@ -225,21 +224,10 @@ Short version here; full reasoning lives in the relevant module's comments/docst
     "consumption started" one where the document doesn't exist in the database yet. Check the
     actual template variables your Paperless-ngx version exposes rather than assuming.
 
-11. **A PDF page-rotation edit through Paperless's API can be relative, not absolute** - verified
-    empirically by round-tripping a document through it. Applying a *local* rotation (e.g. via
-    PyMuPDF, for an immediate in-memory render) is a different, absolute operation from the one
-    sent to the server; conflating the two produces a page that looks right locally and wrong
-    once Paperless re-saves it, or vice versa.
-
-12. **A Docker network alias defined on one network is not visible on another network the same
+11. **A Docker network alias defined on one network is not visible on another network the same
     container also sits on.** If a service resolves an internal hostname correctly from one
     container but gets a connection refused from another container on a different Docker network,
     check whether the alias was only declared under the first network's block.
-
-13. **Nothing autodetects page orientation at the scanner stage** in most consumer scanning
-    software - only deskew (correcting a few degrees of tilt), not a genuine 90/180/270° flip. A
-    page fed in upside-down or sideways stays that way until something downstream corrects it;
-    here, that's an explicit orientation-detection step before OCR.
 
 ## License
 

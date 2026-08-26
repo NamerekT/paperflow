@@ -1,9 +1,8 @@
 """docflow - a document normalisation and classification engine.
 
-Given a PDF, it decides whether the file is born-digital or a scan, corrects
-page orientation, recognises text, escalates pages the local OCR is not
-confident about to a vision LLM, classifies the resulting text and extracts a
-deadline from it.
+Given a PDF, it decides whether the file is born-digital or a scan, recognises
+text, escalates pages the local OCR is not confident about to a vision LLM,
+classifies the resulting text and extracts a deadline from it.
 
 It knows nothing about where the document came from or where the result goes.
 Everything outside the engine is reached through a Protocol in `docflow.ports`,
