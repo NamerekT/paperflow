@@ -231,4 +231,4 @@ Short version here; full reasoning lives in the relevant module's comments/docst
 
 ## License
 
-Not yet decided. Treat as "all rights reserved" until a `LICENSE` file says otherwise.
+This project is licensed under the terms of the MIT License. See the [LICENSE](LICENSE) file for details.

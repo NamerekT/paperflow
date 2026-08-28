@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "paperflow"
 version = "0.1.0"
 description = "Paperless-ngx binding for the docflow engine, plus the watcher, webhook service and CLI tools"
+license = { text = "MIT" }
 requires-python = ">=3.11"
 
 # docflow-core with no extras costs nothing - it is standard library only -
