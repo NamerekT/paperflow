@@ -32,6 +32,11 @@ class ScanQueue:
                 shutil.move(str(src_path), str(dest))
                 logger.info(f"queued [{number:04d}]: {dest.name} <- {src_path.name}")
                 return dest
+            except FileNotFoundError:
+                # The startup sweep and the observer can reach the same scan; whichever
+                # loses the race finds nothing left to move, which is not an error.
+                logger.debug(f"{src_path.name} was already queued by another pass")
+                return None
             except OSError:
                 logger.error(f"could not move {src_path.name} to the queue", exc_info=True)
                 return None

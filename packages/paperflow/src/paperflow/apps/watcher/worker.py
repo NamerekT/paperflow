@@ -8,6 +8,11 @@ filesystem event to trigger it.
 Confirming with Paperless (waiting on its own consume task, then a toast) is handed off
 to a separate bounded pool instead of running inline: it can take up to a minute per
 file, and none of it needs the upload of the *next* file to wait around for it.
+
+Draining does not begin until `paperless_ready` is set. Queueing is deliberately not
+gated on that - scans reach the queue folder whether or not the archive is up - but
+uploading into an archive that has never answered would only burn the retry path and
+flood the log; the connection wait already logs its own throttled progress.
 """
 
 import logging
@@ -31,12 +36,14 @@ class QueueWorker(threading.Thread):
         *,
         upload: Callable[[Path], tuple[str, str] | None],
         finish: Callable[[str, str], None],
+        paperless_ready: threading.Event | None = None,
     ) -> None:
         super().__init__(daemon=True, name="paperflow-watcher-worker")
         self._queue = queue
         self._settings = settings
         self._upload = upload
         self._finish = finish
+        self._paperless_ready = paperless_ready
         self._wake = threading.Event()
         self._confirm_pool = ThreadPoolExecutor(
             max_workers=settings.max_concurrent_confirmations,
@@ -48,6 +55,8 @@ class QueueWorker(threading.Thread):
 
     def run(self) -> None:
         logger.info("QueueWorker started")
+        if self._paperless_ready is not None:
+            self._paperless_ready.wait()
         self._wake.set()  # pick up anything left over from a previous run immediately
         while True:
             self._wake.wait(timeout=self._settings.idle_check_interval)

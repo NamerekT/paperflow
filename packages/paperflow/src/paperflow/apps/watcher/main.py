@@ -5,10 +5,19 @@ Upload, local backup, toast - nothing else. Real classification, OCR escalation 
 deadline search all happen later, asynchronously, once Paperless's own "Document Added"
 workflow calls the service; this process has no idea that webhook exists and never calls
 it.
+
+Accepting a scan is independent of Paperless being reachable. The observer and the
+startup sweep run before anything touches the network, and the wait for Paperless happens
+on a background thread - so a scan made while Docker is still off (or off for the rest of
+the day) is moved into the queue folder within seconds and uploaded whenever the archive
+comes back, across reboots. That ordering is the whole point: the watch folder holds a
+single `Scan.pdf` that the scanner overwrites, so a scan left sitting there is a scan the
+next one destroys.
 """
 
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -56,6 +65,39 @@ def archive_local_copy(src: Path, filename: str, settings: WatcherSettings) -> P
 
     src.replace(dest)
     return dest
+
+
+def adopt_strays(queue: ScanQueue, settings: WatcherSettings) -> list[Path]:
+    """Queue PDFs already sitting in the watch folder when the watcher starts.
+
+    The observer only ever reports changes made while it is running, so anything that
+    landed while the machine was off - or during the gap between the scan and the
+    watcher's own start - would otherwise stay invisible until the scanner overwrote it.
+
+    Files touched within the settle delay are left alone: a scan may be mid-write right
+    now, and the observer will report it once it is done.
+    """
+    if not settings.watch_folder.exists():
+        return []
+
+    adopted: list[Path] = []
+    cutoff = time.time() - settings.write_settle_delay
+    for candidate in sorted(settings.watch_folder.glob("*.pdf")):
+        if not candidate.is_file():
+            continue
+        try:
+            if candidate.stat().st_mtime > cutoff:
+                logger.info(f"{candidate.name} is still being written; leaving it to the observer")
+                continue
+        except OSError:
+            continue
+        queued = queue.enqueue(candidate)
+        if queued is not None:
+            adopted.append(queued)
+
+    if adopted:
+        logger.info(f"adopted {len(adopted)} scan(s) left in the watch folder")
+    return adopted
 
 
 def upload_pdf(
@@ -142,18 +184,17 @@ def main() -> None:
     os.makedirs(watcher_settings.archive_folder, exist_ok=True)
 
     transport = PaperlessTransport(settings.paperless)
-    startup_step_with_retry(
-        "connecting to Paperless (detect_api_version)", transport.detect_api_version
-    )
     tasks = PaperlessTasks(transport)
     documents = PaperlessDocuments(transport, tasks)
 
     queue = ScanQueue(watcher_settings)
+    paperless_ready = threading.Event()
     worker = QueueWorker(
         queue,
         watcher_settings,
         upload=lambda path: upload_pdf(path, documents, watcher_settings),
         finish=lambda task_id, name: finish_pdf(task_id, name, documents, tasks, watcher_settings),
+        paperless_ready=paperless_ready,
     )
     worker.start()
 
@@ -161,6 +202,22 @@ def main() -> None:
     observer = Observer()
     observer.schedule(handler, str(watcher_settings.watch_folder), recursive=False)
     observer.start()
+
+    adopt_strays(queue, watcher_settings)
+    worker.notify()
+
+    def connect_to_paperless() -> None:
+        startup_step_with_retry(
+            "connecting to Paperless (detect_api_version)", transport.detect_api_version
+        )
+        paperless_ready.set()
+
+    # Only now, with the queue already accepting scans, is it safe to block on Paperless:
+    # this wait has no deadline and routinely lasts as long as Docker takes to be started
+    # by hand.
+    threading.Thread(
+        target=connect_to_paperless, daemon=True, name="paperflow-paperless-connect"
+    ).start()
 
     logger.info("=" * 60)
     logger.info("paperflow watcher")

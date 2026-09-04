@@ -8,12 +8,16 @@ a toast always fires on a genuine failure (the old code's silent failure paths, 
 plan called out explicitly).
 """
 
+import os
+import threading
+import time
 from pathlib import Path
 
 import pytest
 
 from paperflow.apps.watcher import main as watcher_main
 from paperflow.apps.watcher.queue import ScanQueue
+from paperflow.apps.watcher.worker import QueueWorker
 from paperflow.errors import PaperlessUnavailable, TaskFailed, TaskTimeout
 from paperflow.settings import WatcherSettings
 
@@ -165,3 +169,83 @@ def test_an_unexpected_upload_error_does_not_leave_the_document_silent(tmp_path,
     assert result is None
     assert len(recorded_toasts) == 1
     assert recorded_toasts[0][0] == "Upload failed"
+
+
+# ── autonomy: queueing must not depend on Paperless being up ────────────────
+
+
+def test_stray_pdfs_left_in_the_watch_folder_are_adopted_at_startup(tmp_path):
+    settings = make_settings(tmp_path)
+    settings.watch_folder.mkdir(parents=True)
+    stray = settings.watch_folder / "Scan.pdf"
+    stray.write_bytes(b"%PDF-1.7 left over from a previous session")
+    os.utime(stray, (0, 0))
+    queue = ScanQueue(settings)
+
+    adopted = watcher_main.adopt_strays(queue, settings)
+
+    assert [path.name for path in adopted] == ["scan_0001.pdf"]
+    assert not stray.exists()
+
+
+def test_a_scan_still_being_written_is_left_to_the_observer(tmp_path):
+    settings = make_settings(tmp_path)
+    settings.watch_folder.mkdir(parents=True)
+    fresh = settings.watch_folder / "Scan.pdf"
+    fresh.write_bytes(b"%PDF-1.7 half written")
+    queue = ScanQueue(settings)
+
+    assert watcher_main.adopt_strays(queue, settings) == []
+    assert fresh.exists()
+
+
+def test_adopting_never_reaches_into_the_queue_or_archive_folders(tmp_path):
+    settings = make_settings(tmp_path)
+    settings.queue_folder.mkdir(parents=True)
+    settings.archive_folder.mkdir(parents=True)
+    queued = settings.queue_folder / "scan_0001.pdf"
+    queued.write_bytes(b"already queued")
+    archived = settings.archive_folder / "scan_0001.pdf"
+    archived.write_bytes(b"already uploaded")
+    os.utime(queued, (0, 0))
+    os.utime(archived, (0, 0))
+
+    assert watcher_main.adopt_strays(ScanQueue(settings), settings) == []
+    assert queued.exists()
+    assert archived.exists()
+
+
+def test_enqueue_survives_the_source_being_taken_by_a_racing_pass(tmp_path):
+    settings = make_settings(tmp_path)
+    queue = ScanQueue(settings)
+
+    assert queue.enqueue(tmp_path / "gone.pdf") is None
+
+
+def test_the_worker_queues_but_does_not_upload_until_paperless_answers(tmp_path):
+    settings = WatcherSettings(
+        watch_folder=tmp_path / "watch",
+        log_file=tmp_path / "watcher.log",
+        idle_check_interval=0.05,
+    )
+    make_scan(tmp_path / "watch")
+    uploaded: list[Path] = []
+    ready = threading.Event()
+
+    worker = QueueWorker(
+        ScanQueue(settings),
+        settings,
+        upload=lambda path: (uploaded.append(path), ("task-1", path.name))[1],
+        finish=lambda task_id, name: None,
+        paperless_ready=ready,
+    )
+    worker.start()
+
+    time.sleep(0.3)
+    assert uploaded == []  # Paperless is still down; the scan waits on disk
+
+    ready.set()
+    deadline = time.monotonic() + 3.0
+    while not uploaded and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert [path.name for path in uploaded] == ["scan_0001.pdf"]

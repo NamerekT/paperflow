@@ -90,7 +90,10 @@ exists" - the same webhook handles a scan, an email import, and a manual upload 
 
 - **`paperflow.apps.watcher`** - runs continuously next to a physical scanner. Watches a folder,
   uploads new files to Paperless with no metadata (that arrives later, asynchronously, from the
-  webhook service), keeps a local backup copy, and sends a desktop notification.
+  webhook service), keeps a local backup copy, and sends a desktop notification. Accepting a scan
+  does not depend on Paperless being up: the file reaches the queue folder immediately, even with
+  Docker off, and survives a reboot - the upload starts once the archive answers. Scans left in
+  the watch folder by a previous session are picked up at startup.
 - **`paperflow.apps.service`** - the FastAPI webhook service described above. The only
   containerized part of the system.
 - **`paperflow.apps.cli`** - four small tools: a nightly catch-up trigger (`paperflow-trigger`,
