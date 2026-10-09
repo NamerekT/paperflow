@@ -35,6 +35,11 @@ COPY packages/docflow-core/ ./packages/docflow-core/
 COPY packages/paperflow/ ./packages/paperflow/
 RUN pip install --no-cache-dir ./packages/docflow-core "./packages/paperflow[service]"
 
+# The latin and eslav recognition models are not in the rapidocr wheel - without this
+# step they are downloaded when the first document arrives after every deploy.
+COPY docker/preload_ocr_models.py /tmp/preload_ocr_models.py
+RUN python /tmp/preload_ocr_models.py && rm /tmp/preload_ocr_models.py
+
 ENV PYTHONUNBUFFERED=1
 # Explicit rather than derived from the package's own file location - a src/ layout
 # would otherwise silently repoint them at /app/src/paperflow/... with no error anywhere.
