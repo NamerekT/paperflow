@@ -10,7 +10,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from paperflow.apps.service.schemas import parse_webhook_body
+from paperflow.apps.service.schemas import parse_tag_review_body, parse_webhook_body
 
 
 def test_a_plain_object_is_parsed_directly():
@@ -39,3 +39,14 @@ def test_a_json_array_is_rejected():
 def test_a_body_without_document_id_is_rejected():
     with pytest.raises(ValidationError):
         parse_webhook_body(json.dumps({"force": True}).encode())
+
+
+def test_the_tag_review_body_takes_the_same_double_encoding():
+    wrapped = json.dumps(json.dumps({"document_id": 307}))
+    body = parse_tag_review_body(wrapped.encode())
+    assert body.document_id == 307
+
+
+def test_a_tag_review_body_without_document_id_is_rejected():
+    with pytest.raises(ValidationError):
+        parse_tag_review_body(b"{}")

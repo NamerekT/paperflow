@@ -22,7 +22,7 @@ from pydantic import ValidationError
 from paperflow import logging_setup
 from paperflow.apps.service import composition
 from paperflow.apps.service.context import ServiceContext
-from paperflow.apps.service.schemas import parse_webhook_body
+from paperflow.apps.service.schemas import parse_tag_review_body, parse_webhook_body
 from paperflow.settings import Settings
 
 _settings = Settings.load("service")
@@ -52,14 +52,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="paperflow-ocr-cascade-webhook", lifespan=lifespan)
 
 
+def _require_token(token: str | None) -> None:
+    if token != _service_settings.webhook_secret:
+        logger.info("rejected webhook: missing or invalid X-Webhook-Token")
+        raise HTTPException(status_code=401, detail="invalid or missing X-Webhook-Token")
+
+
 @app.post("/webhook/ocr-cascade", status_code=202)
 async def receive_webhook(
     request: Request,
     x_webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
 ) -> dict[str, Any]:
-    if x_webhook_token != _service_settings.webhook_secret:
-        logger.info("rejected webhook: missing or invalid X-Webhook-Token")
-        raise HTTPException(status_code=401, detail="invalid or missing X-Webhook-Token")
+    _require_token(x_webhook_token)
 
     raw_body = await request.body()
     try:
@@ -74,6 +78,26 @@ async def receive_webhook(
         f"webhook: doc_id={body.document_id} force={body.force} queued "
         f"(queue length: {queue_length})"
     )
+    return {"status": "queued", "document_id": body.document_id}
+
+
+@app.post("/webhook/tag-review", status_code=202)
+async def receive_tag_review(
+    request: Request,
+    x_webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
+) -> dict[str, Any]:
+    _require_token(x_webhook_token)
+
+    raw_body = await request.body()
+    try:
+        body = parse_tag_review_body(raw_body)
+    except (ValueError, ValidationError) as exc:
+        logger.info(f"rejected tag review: invalid body ({exc}); body: {raw_body[:300]!r}")
+        raise HTTPException(status_code=400, detail="missing or invalid 'document_id'") from exc
+
+    context: ServiceContext = app.state.context
+    queue_length = context.worker.enqueue_tag_review(body.document_id)
+    logger.info(f"tag review: doc_id={body.document_id} queued (queue length: {queue_length})")
     return {"status": "queued", "document_id": body.document_id}
 
 

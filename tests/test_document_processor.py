@@ -17,7 +17,7 @@ from docflow.domain.models import (
     PageReport,
 )
 from paperflow.domain import constants
-from paperflow.domain.models import CustomField, CustomFieldSet
+from paperflow.domain.models import CustomField, CustomFieldSet, TagRef
 from paperflow.errors import PaperlessError
 from paperflow.pipeline.document_processor import DocumentProcessor
 
@@ -99,10 +99,14 @@ class FakeCustomFields:
         return {}
 
 
+REVIEW_PARENT_ID = 7
+
+
 class FakeTaxonomy:
-    def __init__(self):
+    def __init__(self, existing_tags: dict[str, TagRef] | None = None):
         self._ids: dict[tuple[str, str], int] = {}
         self._next = 100
+        self.tags: dict[str, TagRef] = dict(existing_tags or {})
 
     def get_or_create_id(self, resource, name):
         if not name:
@@ -112,6 +116,12 @@ class FakeTaxonomy:
             self._ids[key] = self._next
             self._next += 1
         return self._ids[key]
+
+    def get_or_create_tag(self, name, *, new_parent_id):
+        if name not in self.tags:
+            self.tags[name] = TagRef(id=self._next, parent_id=new_parent_id)
+            self._next += 1
+        return self.tags[name]
 
 
 class FakeWorkflow:
@@ -139,7 +149,13 @@ def make_processor(
     workflow = FakeWorkflow(analysis or make_analysis())
     documents = FakeDocuments()
     custom_fields = FakeCustomFields()
-    taxonomy = FakeTaxonomy()
+    taxonomy = FakeTaxonomy(
+        {
+            "Bürgergeld": TagRef(id=50, parent_id=None),
+            "Personal": TagRef(id=51, parent_id=None),
+            "Sample": TagRef(id=52, parent_id=None),
+        }
+    )
     processor = DocumentProcessor(
         workflow,
         documents,
@@ -149,6 +165,7 @@ def make_processor(
         google_tasks,
         apply_changes=apply_changes,
         progress_path=(tmp_path or Path(".")) / "progress.jsonl",
+        review_parent_id=REVIEW_PARENT_ID,
     )
     return processor, {
         "workflow": workflow,
@@ -192,9 +209,32 @@ def test_happy_path_writes_content_classification_and_cascade_fields(tmp_path):
     assert payload["correspondent"] == parts["taxonomy"].get_or_create_id(
         "correspondents", "Jobcenter Musterstadt"
     )
-    assert len(payload["tags"]) == 3
+    assert payload["tags"] == [50, 51, 52]
     field_ids = {value.field for value in values}
     assert field_ids == {1, 3, 4, 5}  # content_by, avg_confidence, avg_accuracy, cascade_flag
+
+
+def test_a_new_tag_is_created_under_the_review_parent_which_is_added_to_the_document(tmp_path):
+    processor, parts = make_processor(tmp_path=tmp_path)
+    del parts["taxonomy"].tags["Bürgergeld"]
+
+    processor.process(1, force=False)
+
+    created = parts["taxonomy"].tags["Bürgergeld"]
+    assert created.parent_id == REVIEW_PARENT_ID
+    _, _, payload = parts["custom_fields"].patches[0]
+    assert payload["tags"] == [created.id, REVIEW_PARENT_ID, 51, 52]
+
+
+def test_reusing_a_tag_still_under_review_adds_the_review_parent_once(tmp_path):
+    processor, parts = make_processor(tmp_path=tmp_path)
+    parts["taxonomy"].tags["Bürgergeld"] = TagRef(id=50, parent_id=REVIEW_PARENT_ID)
+    parts["taxonomy"].tags["Sample"] = TagRef(id=52, parent_id=REVIEW_PARENT_ID)
+
+    processor.process(1, force=False)
+
+    _, _, payload = parts["custom_fields"].patches[0]
+    assert payload["tags"] == [50, REVIEW_PARENT_ID, 51, 52]
 
 
 def test_dry_run_does_not_write_anything(tmp_path):

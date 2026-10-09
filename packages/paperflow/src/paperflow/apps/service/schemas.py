@@ -27,10 +27,22 @@ class WebhookBody(BaseModel):
     force: bool = False
 
 
-def parse_webhook_body(raw_body: bytes) -> WebhookBody:
+class TagReviewBody(BaseModel):
+    document_id: int
+
+
+def _decode_object(raw_body: bytes) -> dict[str, Any]:
     parsed: Any = json.loads(raw_body)
     if isinstance(parsed, str):
         parsed = json.loads(parsed)
     if not isinstance(parsed, dict):
         raise ValueError(f"expected a JSON object, got {type(parsed).__name__}")
-    return WebhookBody.model_validate(parsed)
+    return parsed
+
+
+def parse_webhook_body(raw_body: bytes) -> WebhookBody:
+    return WebhookBody.model_validate(_decode_object(raw_body))
+
+
+def parse_tag_review_body(raw_body: bytes) -> TagReviewBody:
+    return TagReviewBody.model_validate(_decode_object(raw_body))

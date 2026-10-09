@@ -48,6 +48,22 @@ TAG_PERSONAL = "Personal"
 FAMILY_FALLBACK = "Familie"
 
 
+# ── Tag review ────────────────────────────────────────────────────────────
+
+#: Parent of every tag the classifier invented, until a human has looked at it:
+#: moved elsewhere to keep it, or renamed with `MERGE_PREFIX` to fold it into
+#: an existing one. Documents carrying such a tag carry this one too.
+TAG_REVIEW_PARENT = "🆕 Neue Tags"
+
+#: A tag renamed to "→ Target" is an instruction to replace it with Target on
+#: every document, carried out by the tag-review webhook.
+MERGE_PREFIX = "→"
+
+#: Part of the name of tags that drive Paperless workflows rather than describe
+#: documents. Never offered to the classifier.
+TECHNICAL_TAG_MARKER = "Technical tag"
+
+
 # ── Page attribution ──────────────────────────────────────────────────────
 
 #: Prefix in the "Mixed Created by" field value, one entry per page.

@@ -95,6 +95,12 @@ class CustomFieldSet:
 
 
 @dataclass(frozen=True, slots=True)
+class TagRef:
+    id: int
+    parent_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
 class ResolvedClassification:
     """A classification with every name turned into a Paperless id.
 

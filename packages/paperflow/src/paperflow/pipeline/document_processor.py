@@ -47,6 +47,7 @@ class DocumentProcessor:
         *,
         apply_changes: bool,
         progress_path: Path,
+        review_parent_id: int,
     ) -> None:
         self._workflow = workflow
         self._documents = documents
@@ -56,6 +57,7 @@ class DocumentProcessor:
         self._google_tasks = google_tasks
         self._apply_changes = apply_changes
         self._progress_path = progress_path
+        self._review_parent_id = review_parent_id
 
     def already_processed(self, doc_id: int) -> bool:
         document = self._documents.get(doc_id)
@@ -120,13 +122,19 @@ class DocumentProcessor:
         document manager: it produces names, and only here - never upstream - do they
         become ids in a particular Paperless instance's database.
         """
-        tag_ids = tuple(
-            tag_id
-            for tag_id in (
-                self._taxonomy.get_or_create_id("tags", name) for name in classification.tags
-            )
-            if tag_id is not None
-        )
+        tag_ids: list[int] = []
+        for name in classification.tags:
+            tag = self._taxonomy.get_or_create_tag(name, new_parent_id=self._review_parent_id)
+            if tag is None:
+                continue
+            tag_ids.append(tag.id)
+            # Named explicitly rather than left to Paperless to add: a tag the
+            # classifier invented, or reused before anyone accepted it, has to show
+            # up under the review parent, and that is what the review workflow
+            # filters on.
+            if tag.parent_id == self._review_parent_id:
+                tag_ids.append(self._review_parent_id)
+
         return ResolvedClassification(
             title=classification.title,
             correspondent_id=self._taxonomy.get_or_create_id(
@@ -135,7 +143,7 @@ class DocumentProcessor:
             document_type_id=self._taxonomy.get_or_create_id(
                 "document_types", classification.document_type or ""
             ),
-            tag_ids=tag_ids,
+            tag_ids=tuple(dict.fromkeys(tag_ids)),
             date=classification.date,
         )
 

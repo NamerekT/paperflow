@@ -30,6 +30,7 @@ from paperflow.apps.service.worker import QueueWorker
 from paperflow.domain import constants
 from paperflow.domain.schema import CUSTOM_FIELD_SPECS
 from paperflow.pipeline.document_processor import DocumentProcessor
+from paperflow.pipeline.tag_review import TagReviewer
 from paperflow.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,9 @@ def build(settings: Settings) -> ServiceContext:
     logger.info("checking/creating the cascade's custom fields")
     fields = startup_step_with_retry(
         "cascade custom fields", lambda: custom_fields.ensure(CUSTOM_FIELD_SPECS)
+    )
+    review_parent_id = startup_step_with_retry(
+        "tag review parent", lambda: taxonomy.ensure_tag(constants.TAG_REVIEW_PARENT)
     )
 
     family_members = _load_family_members(settings.family_members_file)
@@ -127,7 +131,11 @@ def build(settings: Settings) -> ServiceContext:
         google_tasks,
         apply_changes=service_settings.apply_changes,
         progress_path=service_settings.progress_path,
+        review_parent_id=review_parent_id,
+    )
+    tag_reviewer = TagReviewer(
+        documents, taxonomy, review_parent_id, apply_changes=service_settings.apply_changes
     )
 
-    worker = QueueWorker(processor, service_settings)
+    worker = QueueWorker(processor, tag_reviewer, service_settings)
     return ServiceContext(worker=worker)
