@@ -1,9 +1,17 @@
 # Applies to docker/service.Dockerfile's build context, which is the repository root.
-# Keeps large or irrelevant local state out of every build, rather than letting it ride
-# along on every `docker build` only to be unused.
+# Named after the Dockerfile on purpose: Docker reads <Dockerfile>.dockerignore next to
+# the Dockerfile, or .dockerignore at the context root - a plain docker/.dockerignore is
+# silently ignored. The context now travels over SSH to the server's daemon, so
+# everything below would otherwise be uploaded on every deploy.
 
 .git/
 .claude/
+.temp/
+
+# The watcher's scans, logs and local state.
+scans/
+*.log
+*.jsonl
 
 # Diagnostic scripts and their data/output - not needed to run the service, and the
 # data/results subfolders alone have run to tens of megabytes locally.
@@ -14,6 +22,8 @@ experiments/
 credentials/
 family_members.json
 .env
+.env.*
+!.env.example
 
 # Python/tooling caches, never useful inside an image.
 __pycache__/

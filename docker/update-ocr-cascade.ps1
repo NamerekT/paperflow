@@ -1,38 +1,43 @@
-# Builds ocr-cascade-webhook from the current working tree, tags it with the short
-# git sha (traceable, and never collides with a previous build the way :latest does),
-# pins that tag in the Paperless compose project's .env, and recreates ONLY that one
-# container via --no-deps - the other three services in that compose file
-# (paperless-broker, paperless-db, paperless-webserver) are left untouched.
+# Builds ocr-cascade-webhook from the current working tree on the server's Docker
+# daemon (over SSH - the PC needs only the docker CLI, no daemon), tags it with the
+# short git sha (traceable, and never collides with a previous build the way :latest
+# does), pins that tag in the stack's .env on the server, and recreates ONLY that one
+# container via --no-deps - the other services of the Paperless stack are left
+# untouched.
 #
-# The compose project lives outside this repository: -ComposeDir, or
-# PAPERLESS_COMPOSE_DIR from the environment or this repository's .env.
+# Where to deploy: -SshHost / -StackDir, or PAPERFLOW_DEPLOY_HOST /
+# PAPERFLOW_DEPLOY_STACK_DIR from the environment or this repository's .env.
 #
 # Usage (from anywhere):
-#   pwsh <repo>\docker\update-ocr-cascade.ps1 [-ComposeDir <dir>]
+#   pwsh <repo>\docker\update-ocr-cascade.ps1 [-SshHost <host>] [-StackDir <dir>]
 #
-# Rollback: edit OCR_CASCADE_WEBHOOK_VERSION in the compose project's .env
-# back to an older sha (any tag still present in `docker images ocr-cascade-webhook`),
-# then rerun the `docker compose up -d --no-deps` line at the bottom by hand.
+# Rollback: the previous tag is printed before the switch, and the stack's .env is
+# copied to .env.bak-YYYYMMDD (first deploy of the day). Put an older sha (any tag
+# still present in `docker images ocr-cascade-webhook` on the server) back into
+# OCR_CASCADE_WEBHOOK_VERSION and run `docker compose up -d --no-deps
+# ocr-cascade-webhook` in the stack folder.
 
-param([string]$ComposeDir = $env:PAPERLESS_COMPOSE_DIR)
+param(
+    [string]$SshHost = $env:PAPERFLOW_DEPLOY_HOST,
+    [string]$StackDir = $env:PAPERFLOW_DEPLOY_STACK_DIR
+)
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 
-if (-not $ComposeDir) {
-    $repoEnv = Join-Path $repoRoot ".env"
-    if (Test-Path $repoEnv) {
-        $line = Get-Content $repoEnv | Where-Object { $_ -match '^\s*PAPERLESS_COMPOSE_DIR\s*=' } |
-            Select-Object -Last 1
-        if ($line) { $ComposeDir = ($line -split '=', 2)[1].Trim().Trim('"') }
-    }
+function Get-DotEnvValue([string]$Name) {
+    $file = Join-Path $repoRoot ".env"
+    if (-not (Test-Path $file)) { return $null }
+    $line = Get-Content $file | Where-Object { $_ -match "^\s*$Name\s*=" } | Select-Object -Last 1
+    if ($line) { return ($line -split '=', 2)[1].Trim().Trim('"') }
+    return $null
 }
-if (-not $ComposeDir) { throw "PAPERLESS_COMPOSE_DIR is not set (pass -ComposeDir or add it to .env)" }
-if (-not [System.IO.Path]::IsPathRooted($ComposeDir)) { $ComposeDir = Join-Path $repoRoot $ComposeDir }
 
-$composeDir = (Resolve-Path $ComposeDir).Path
-$envFile = "$composeDir\.env"
+if (-not $SshHost) { $SshHost = Get-DotEnvValue "PAPERFLOW_DEPLOY_HOST" }
+if (-not $StackDir) { $StackDir = Get-DotEnvValue "PAPERFLOW_DEPLOY_STACK_DIR" }
+if (-not $SshHost) { throw "PAPERFLOW_DEPLOY_HOST is not set (pass -SshHost or add it to .env)" }
+if (-not $StackDir) { throw "PAPERFLOW_DEPLOY_STACK_DIR is not set (pass -StackDir or add it to .env)" }
 
 $sha = (git -C $repoRoot rev-parse --short HEAD).Trim()
 $dirty = git -C $repoRoot status --porcelain
@@ -41,13 +46,18 @@ if ($dirty) {
     Write-Warning "Working tree has uncommitted changes - tagging as $sha"
 }
 
-docker build -f "$repoRoot\docker\service.Dockerfile" -t "ocr-cascade-webhook:$sha" $repoRoot
+docker -H "ssh://$SshHost" build -f "$repoRoot\docker\service.Dockerfile" -t "ocr-cascade-webhook:$sha" $repoRoot
 if ($LASTEXITCODE -ne 0) { throw "docker build failed" }
 
-(Get-Content $envFile) -replace 'OCR_CASCADE_WEBHOOK_VERSION=.*', "OCR_CASCADE_WEBHOOK_VERSION=$sha" |
-    Set-Content $envFile
+$remote = @"
+set -e
+cd '$StackDir'
+echo "previous: `$(grep '^OCR_CASCADE_WEBHOOK_VERSION=' .env)"
+cp -n .env ".env.bak-`$(date +%Y%m%d)"
+sed -i 's/^OCR_CASCADE_WEBHOOK_VERSION=.*/OCR_CASCADE_WEBHOOK_VERSION=$sha/' .env
+docker compose up -d --no-deps ocr-cascade-webhook
+"@
+($remote -replace "`r", "") | ssh $SshHost "sh -s"
+if ($LASTEXITCODE -ne 0) { throw "deploy on $SshHost failed" }
 
-docker compose -f "$composeDir\docker-compose.yml" up -d --no-deps ocr-cascade-webhook
-if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
-
-Write-Host "Deployed ocr-cascade-webhook:$sha" -ForegroundColor Green
+Write-Host "Deployed ocr-cascade-webhook:$sha to $SshHost" -ForegroundColor Green
