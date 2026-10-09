@@ -30,11 +30,11 @@ from paperflow.apps.cli import console
 from paperflow.errors import TaskFailed, TaskTimeout
 from paperflow.i18n import t
 from paperflow.i18n.keys import M
-from paperflow.settings import Settings, TriggerSettings
+from paperflow.settings import DEFAULT_WATCH_FOLDER, Settings, TriggerSettings, resolve_path
 
 WEBHOOK_TIMEOUT = 10.0  # not retried - a skipped document is picked up by the next run
 
-_UPLOADED_JSONL = Path(__file__).resolve().parent / "cascade_uploaded_from_folder.jsonl"
+_UPLOADED_STATE_FILE = "cascade_uploaded_from_folder.jsonl"
 
 
 def trigger_webhook(trigger: TriggerSettings, doc_id: int, *, force: bool) -> dict[str, Any]:
@@ -68,14 +68,14 @@ def file_sha256(path: Path, chunk_size: int = 1 << 20) -> str:
     return digest.hexdigest()
 
 
-def _load_uploaded_state() -> tuple[dict[str, int], dict[str, int]]:
+def _load_uploaded_state(state_file: Path) -> tuple[dict[str, int], dict[str, int]]:
     """(path -> doc_id, content_hash -> doc_id)."""
     by_path: dict[str, int] = {}
     by_hash: dict[str, int] = {}
-    if not _UPLOADED_JSONL.exists():
+    if not state_file.exists():
         return by_path, by_hash
 
-    for line in _UPLOADED_JSONL.read_text(encoding="utf-8").splitlines():
+    for line in state_file.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         record = json.loads(line)
@@ -93,27 +93,29 @@ def _load_uploaded_state() -> tuple[dict[str, int], dict[str, int]]:
     return by_path, by_hash
 
 
-def _append_uploaded(path: str, doc_id: int, file_hash: str) -> None:
-    with open(_UPLOADED_JSONL, "a", encoding="utf-8") as handle:
+def _append_uploaded(state_file: Path, path: str, doc_id: int, file_hash: str) -> None:
+    with open(state_file, "a", encoding="utf-8") as handle:
         handle.write(json.dumps({"path": path, "doc_id": doc_id, "hash": file_hash}) + "\n")
 
 
-def _upload_new_files(documents: PaperlessDocuments, folder: Path, limit: int | None) -> None:
+def _upload_new_files(
+    documents: PaperlessDocuments, folder: Path, limit: int | None, *, root: Path
+) -> None:
     # The watcher's own folder: queue/ holds scans not yet uploaded, and "Uploaded to
     # Paperless/" holds ones already in the archive by that path - re-uploading either
     # from here would either catch a half-processed file or create a duplicate.
-    watch_folder = os.environ.get("PAPERFLOW_WATCH_FOLDER")
+    watch_path = resolve_path(
+        os.environ.get("PAPERFLOW_WATCH_FOLDER", ""), DEFAULT_WATCH_FOLDER, root
+    ).resolve()
+    state_file = root / _UPLOADED_STATE_FILE
 
-    uploaded_by_path, uploaded_by_hash = _load_uploaded_state()
+    uploaded_by_path, uploaded_by_hash = _load_uploaded_state(state_file)
+    folder = folder.resolve()
     all_pdfs = sorted(set(folder.rglob("*.pdf")) | set(folder.rglob("*.PDF")))
-    if watch_folder:
-        watch_path = Path(watch_folder)
-        pdfs = [p for p in all_pdfs if not p.is_relative_to(watch_path)]
-        skipped = len(all_pdfs) - len(pdfs)
-        if skipped:
-            console.echo(t(M.TRIGGER_SKIPPING_WATCH_FOLDER, count=skipped, folder=watch_folder))
-    else:
-        pdfs = all_pdfs
+    pdfs = [p for p in all_pdfs if not p.is_relative_to(watch_path)]
+    skipped = len(all_pdfs) - len(pdfs)
+    if skipped:
+        console.echo(t(M.TRIGGER_SKIPPING_WATCH_FOLDER, count=skipped, folder=str(watch_path)))
 
     new_uploads = 0
     for pdf_path in pdfs:
@@ -131,7 +133,7 @@ def _upload_new_files(documents: PaperlessDocuments, folder: Path, limit: int | 
             existing_id = uploaded_by_hash[file_hash]
             console.echo(t(M.TRIGGER_ALREADY_UPLOADED, path=str(pdf_path), doc_id=existing_id))
             uploaded_by_path[key] = existing_id
-            _append_uploaded(key, existing_id, file_hash)
+            _append_uploaded(state_file, key, existing_id, file_hash)
             continue
 
         if limit is not None and new_uploads >= limit:
@@ -146,7 +148,7 @@ def _upload_new_files(documents: PaperlessDocuments, folder: Path, limit: int | 
             console.echo(t(M.TRIGGER_UPLOAD_FAILED, path=f"{pdf_path} ({exc})"))
             continue
         if new_id is not None:
-            _append_uploaded(key, new_id, file_hash)
+            _append_uploaded(state_file, key, new_id, file_hash)
             uploaded_by_path[key] = new_id
             uploaded_by_hash[file_hash] = new_id
             new_uploads += 1
@@ -193,7 +195,7 @@ def main() -> None:
         console.echo(t(M.TRIGGER_DOC_COUNT, count=len(doc_ids)))
 
     if args.scan_folder:
-        _upload_new_files(documents, Path(args.scan_folder), args.limit)
+        _upload_new_files(documents, Path(args.scan_folder), args.limit, root=settings.root)
 
     console.echo(
         t(M.TRIGGER_SENDING_TO_WEBHOOK, count=len(doc_ids), url=trigger_settings.webhook_url)

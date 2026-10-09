@@ -27,6 +27,8 @@ _ENV_HINT = (
     "or set the variables in the container environment."
 )
 
+DEFAULT_WATCH_FOLDER = "scans"
+
 
 def load_dotenv_if_present(start: Path | None = None) -> Path | None:
     """Load a .env file found at or above `start`, if python-dotenv is here.
@@ -48,6 +50,12 @@ def load_dotenv_if_present(start: Path | None = None) -> Path | None:
             load_dotenv(env_file)
             return env_file
     return None
+
+
+def resolve_path(raw: str, default: str, root: Path) -> Path:
+    """`raw` (or `default` when unset), anchored at `root` unless already absolute."""
+    path = Path(raw.strip() or default)
+    return path if path.is_absolute() else root / path
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,11 +129,12 @@ class WatcherSettings:
         return self.watch_folder / "Uploaded to Paperless"
 
     @classmethod
-    def from_env(cls, env: EnvReader) -> "WatcherSettings":
-        watch = env.required("PAPERFLOW_WATCH_FOLDER")
+    def from_env(cls, env: EnvReader, root: Path) -> "WatcherSettings":
         return cls(
-            watch_folder=Path(watch),
-            log_file=Path(env.optional("PAPERFLOW_LOG_FILE", "") or (Path.cwd() / "paperflow.log")),
+            watch_folder=resolve_path(
+                env.optional("PAPERFLOW_WATCH_FOLDER", ""), DEFAULT_WATCH_FOLDER, root
+            ),
+            log_file=resolve_path(env.optional("PAPERFLOW_LOG_FILE", ""), "paperflow.log", root),
             write_settle_delay=env.number("PAPERFLOW_WRITE_SETTLE_DELAY", 4.0),
             idle_check_interval=env.number("PAPERFLOW_IDLE_CHECK_INTERVAL", 20.0),
             paperless_wait_timeout=env.number("PAPERFLOW_PAPERLESS_WAIT_TIMEOUT", 60.0),
@@ -208,10 +217,10 @@ class GoogleTasksSettings:
     create_tasks: bool = False
 
     @classmethod
-    def from_env(cls, env: EnvReader) -> "GoogleTasksSettings":
+    def from_env(cls, env: EnvReader, root: Path) -> "GoogleTasksSettings":
         return cls(
-            credentials_dir=Path(
-                env.optional("PAPERFLOW_CREDENTIALS_DIR", "") or (Path.cwd() / "credentials")
+            credentials_dir=resolve_path(
+                env.optional("PAPERFLOW_CREDENTIALS_DIR", ""), "credentials", root
             ),
             list_name=env.optional("GOOGLE_TASKS_LIST_NAME", "Paperflow Fristen"),
             create_tasks=env.flag("FRIST_CREATE_TASKS", False),
@@ -223,6 +232,10 @@ class Settings:
     paperless: PaperlessSettings
     google: GoogleTasksSettings
     family_members_file: Path
+    #: Directory of the loaded .env, or the cwd without one. Relative paths in
+    #: the environment are anchored here, so the scheduler's working directory
+    #: does not matter and the checkout can move without editing .env.
+    root: Path
     llm: LlmSettings | None = None
     cascade: CascadeSettings = field(default_factory=CascadeSettings)
     watcher: WatcherSettings | None = None
@@ -233,16 +246,15 @@ class Settings:
     @classmethod
     def load(cls, profile: Profile, *, load_dotenv: bool = True) -> "Settings":
         """Build settings for one application, failing once for all problems."""
-        if load_dotenv:
-            load_dotenv_if_present()
+        env_file = load_dotenv_if_present() if load_dotenv else None
+        root = env_file.parent if env_file else Path.cwd().resolve()
 
         env = EnvReader(hint=_ENV_HINT)
 
         paperless = PaperlessSettings.from_env(env)
-        google = GoogleTasksSettings.from_env(env)
-        family_members_file = Path(
-            env.optional("PAPERFLOW_FAMILY_MEMBERS_FILE", "")
-            or (Path.cwd() / "family_members.json")
+        google = GoogleTasksSettings.from_env(env, root)
+        family_members_file = resolve_path(
+            env.optional("PAPERFLOW_FAMILY_MEMBERS_FILE", ""), "family_members.json", root
         )
 
         # Only the service runs the engine. The watcher is a dumb uploader and
@@ -250,7 +262,7 @@ class Settings:
         # neither should fail to start over an unset model-gateway key.
         llm = LlmSettings.from_env(env) if profile == "service" else None
         cascade = CascadeSettings.from_env(env)
-        watcher = WatcherSettings.from_env(env) if profile == "watcher" else None
+        watcher = WatcherSettings.from_env(env, root) if profile == "watcher" else None
         service = ServiceSettings.from_env(env) if profile == "service" else None
 
         env.raise_if_incomplete()
@@ -259,6 +271,7 @@ class Settings:
             paperless=paperless,
             google=google,
             family_members_file=family_members_file,
+            root=root,
             llm=llm,
             cascade=cascade,
             watcher=watcher,

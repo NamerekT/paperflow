@@ -6,6 +6,8 @@ family_members.json
 # Runtime state and logs
 *.log
 *.jsonl
+scans/
+.temp/
 
 # Experiment artefacts (large binaries, OCR output samples)
 experiments/results/
