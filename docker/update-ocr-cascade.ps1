@@ -57,7 +57,9 @@ cp -n .env ".env.bak-`$(date +%Y%m%d)"
 sed -i 's/^OCR_CASCADE_WEBHOOK_VERSION=.*/OCR_CASCADE_WEBHOOK_VERSION=$sha/' .env
 docker compose up -d --no-deps ocr-cascade-webhook
 "@
-($remote -replace "`r", "") | ssh $SshHost "sh -s"
+# PowerShell appends CRLF to text piped into a native command, so the CR is
+# stripped on the server - otherwise it sticks to the last word of the script.
+$remote | ssh $SshHost "tr -d '\r' | sh -s"
 if ($LASTEXITCODE -ne 0) { throw "deploy on $SshHost failed" }
 
 Write-Host "Deployed ocr-cascade-webhook:$sha to $SshHost" -ForegroundColor Green
