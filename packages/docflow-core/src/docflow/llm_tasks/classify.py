@@ -11,6 +11,7 @@ copies came to disagree.
 """
 
 import logging
+import re
 from datetime import date, datetime
 
 from docflow.domain.models import DocumentClassification
@@ -22,6 +23,10 @@ from docflow.ports.taxonomy import ClassifierPolicy, TaxonomySnapshot
 from docflow.settings import LlmTaskConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _words(name: str) -> list[str]:
+    return re.findall(r"\w+", name.casefold())
 
 
 def build_system_prompt(
@@ -146,10 +151,13 @@ class ClassifyTask(LlmTask):
         # guarantee - the same reason it sometimes confused two institutions or
         # dropped an existing document type. dict.fromkeys keeps the model's
         # own ordering while removing duplicates.
+        correspondent = draft.correspondent or fallback.correspondent
+        document_type = draft.document_type or fallback.document_type
+        topic_tags = self._topic_tags(draft.tags, correspondent, document_type)
         tags = tuple(
             dict.fromkeys(
                 [
-                    *(draft.tags or [fallback.tag]),
+                    *(topic_tags or [fallback.tag]),
                     *self._policy.always_tags,
                     family_member,
                 ]
@@ -158,12 +166,38 @@ class ClassifyTask(LlmTask):
 
         return DocumentClassification(
             title=draft.title or f"{datetime.now():%Y-%m-%d_%H-%M-%S}_{fallback.correspondent}",
-            correspondent=draft.correspondent or fallback.correspondent,
-            document_type=draft.document_type or fallback.document_type,
+            correspondent=correspondent,
+            document_type=document_type,
             tags=tags,
             family_member=family_member,
             date=draft.date or today,
         )
+
+    @staticmethod
+    def _topic_tags(raw_tags: list[str], correspondent: str, document_type: str) -> list[str]:
+        """Drop the tags that only repeat the sender or the kind of document.
+
+        The prompt asks for this already and the model ignores it often enough to
+        matter: a tag equal to the document type, or naming the correspondent - in
+        full or by its leading words, "Jobcenter" beside "Jobcenter Musterstadt" -
+        adds nothing that cannot already be filtered on. A tag taken from the middle
+        of the name ("Kreis Musterstadt" beside "Jobcenter (Kreis Musterstadt)") is
+        a place, not the sender, and stays.
+        """
+        correspondent_words = _words(correspondent)
+        kept: list[str] = []
+        for raw_tag in raw_tags:
+            tag = raw_tag.strip()
+            if not tag:
+                continue
+            words = _words(tag)
+            if tag.casefold() == document_type.strip().casefold():
+                logger.info(f"dropped tag {tag!r}: repeats the document type")
+            elif words and correspondent_words[: len(words)] == words:
+                logger.info(f"dropped tag {tag!r}: repeats the correspondent {correspondent!r}")
+            else:
+                kept.append(tag)
+        return kept
 
     def _match_family_member(self, raw_value: str) -> str:
         """Map the model's answer onto a canonical name from the list.
