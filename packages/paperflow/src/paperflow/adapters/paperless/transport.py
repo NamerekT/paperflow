@@ -167,5 +167,9 @@ class PaperlessTransport:
     def document_url(self, doc_id: int) -> str:
         return f"{self.base_url}/documents/{doc_id}/details"
 
+    def tag_documents_url(self, tag_id: int) -> str:
+        """The document list of the web UI, filtered to one tag."""
+        return f"{self.base_url}/documents?tags__id__all={tag_id}"
+
     def close(self) -> None:
         self._session.close()

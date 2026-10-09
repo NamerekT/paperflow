@@ -15,6 +15,9 @@ get wrong in production:
 | `test_cascade.py` | The OCR escalation cascade, against fake pages and tasks |
 | `test_fitz_document.py` | The same detection against real PyMuPDF - skipped unless `test/data/` is present locally |
 | `test_document_processor.py` | The download/engine/resolve/write cycle, against fake Paperless adapters |
+| `test_classify.py` | Dropping tags that only repeat the correspondent or the document type |
+| `test_tag_review.py` | New tags going under the review parent, and `→ Target` merges, against fake adapters |
+| `test_rare_tags.py` | Which tags the `paperflow-rare-tags` report includes |
 
 Run with `pytest` from the repository root.
 

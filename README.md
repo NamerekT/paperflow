@@ -86,6 +86,28 @@ A single Docker service (`docker/service.Dockerfile`) is the only place this cas
 watcher and the nightly catch-up job are both thin: they only ever tell Paperless "a document
 exists" - the same webhook handles a scan, an email import, and a manual upload identically.
 
+### Tag review
+
+Every tag the classifier invents is created as a child of the tag `🆕 Neue Tags`, and the
+document gets that parent tag too, so new tags collect in one place instead of dissolving into
+the list. Reviewing them is ordinary tag editing in the Paperless UI:
+
+- **keep** a tag - move it out from under `🆕 Neue Tags`;
+- **merge** a tag - rename it to `→ Target`, where Target is an existing tag. To merge a tag that
+  is not under review, also move it under `🆕 Neue Tags`: Paperless then adds the parent to its
+  documents, which is how the workflow below finds them.
+
+Neither edit touches the documents. A second Paperless workflow does: for every document that
+carries `🆕 Neue Tags` it calls `POST /webhook/tag-review` (triggers: Scheduled, daily, and
+Document Updated; filter: has that tag; a webhook action with the same header and body as the
+cascade's). For that document the service replaces each `→ Target` tag with Target, deletes a
+merge tag once no document carries it, and removes `🆕 Neue Tags` when none of the document's
+tags is under it any more. A `→ Target` tag whose target does not exist is left alone and logged.
+
+Technical tags - the review parent, `→ ...` tags, and any tag with "Technical tag" in its name -
+are never shown to the classifier. A tag that only repeats the correspondent or the document
+type is dropped before the document is written.
+
 ## Applications
 
 - **`paperflow.apps.watcher`** - runs continuously next to a physical scanner. Watches a folder,
@@ -96,11 +118,12 @@ exists" - the same webhook handles a scan, an email import, and a manual upload 
   the watch folder by a previous session are picked up at startup.
 - **`paperflow.apps.service`** - the FastAPI webhook service described above. The only
   containerized part of the system.
-- **`paperflow.apps.cli`** - four small tools: a nightly catch-up trigger (`paperflow-trigger`,
+- **`paperflow.apps.cli`** - five small tools: a nightly catch-up trigger (`paperflow-trigger`,
   covers documents the webhook missed), a duplicate-document finder that compares OCR text and
   perceptual hashes rather than byte-identical checksums (`paperflow-duplicates`), a Paperless
-  tag-color utility (`paperflow-tag-colors`), and the one-time Google OAuth consent flow
-  (`paperflow-google-auth`).
+  tag-color utility (`paperflow-tag-colors`), a read-only report of tags carried by at most N
+  documents, with links to them - the candidates for a merge (`paperflow-rare-tags`), and the
+  one-time Google OAuth consent flow (`paperflow-google-auth`).
 
 CLI and watcher output is localized (`ru`/`en`, via `paperflow.i18n`); log records are always
 English, enforced by a ruff rule that keeps `paperflow.i18n` out of library code.

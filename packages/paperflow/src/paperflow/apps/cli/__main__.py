@@ -2,7 +2,7 @@
 
 Convenience for a checkout without the console scripts on PATH; each tool is equally
 reachable directly (`paperflow-trigger`, `paperflow-duplicates`, `paperflow-tag-colors`,
-`paperflow-google-auth` - see `[project.scripts]`).
+`paperflow-rare-tags`, `paperflow-google-auth` - see `[project.scripts]`).
 """
 
 import importlib
@@ -12,6 +12,7 @@ _TOOLS = {
     "trigger": "paperflow.apps.cli.trigger",
     "duplicates": "paperflow.apps.cli.duplicates",
     "tag-colors": "paperflow.apps.cli.tag_colors",
+    "rare-tags": "paperflow.apps.cli.rare_tags",
     "google-auth": "paperflow.apps.cli.google_auth",
 }
 

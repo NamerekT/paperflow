@@ -35,6 +35,10 @@
   "tagcolor_summary_dry_run": "  ..  покрасил бы: {changed} из {total}",
   "tagcolor_summary_applied": "  ..  покрашено: {changed} из {total}",
 
+  "raretags_count": "  ..  тегов не более чем на {max_documents} документах: {rare} из {total}",
+  "raretags_tag_line": "── {name}: {count}  -> {url}",
+  "raretags_doc_line": "     id={doc_id}  {title}  -> {url}",
+
   "google_auth_using_client": "  ..  использую OAuth-клиент: {path}",
   "google_auth_saved": "  OK  сохранено: {path}",
   "google_auth_creating_test_task": "  ..  проверяю: создаю тестовую задачу...",

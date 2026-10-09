@@ -35,6 +35,10 @@
   "tagcolor_summary_dry_run": "  ..  would recolour: {changed} of {total}",
   "tagcolor_summary_applied": "  ..  recoloured: {changed} of {total}",
 
+  "raretags_count": "  ..  tags on at most {max_documents} document(s): {rare} of {total}",
+  "raretags_tag_line": "── {name}: {count}  -> {url}",
+  "raretags_doc_line": "     id={doc_id}  {title}  -> {url}",
+
   "google_auth_using_client": "  ..  using OAuth client: {path}",
   "google_auth_saved": "  OK  saved: {path}",
   "google_auth_creating_test_task": "  ..  verifying: creating a test task...",

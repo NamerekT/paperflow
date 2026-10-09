@@ -54,6 +54,7 @@ dev = [
 paperflow-trigger = "paperflow.apps.cli.trigger:main"
 paperflow-duplicates = "paperflow.apps.cli.duplicates:main"
 paperflow-tag-colors = "paperflow.apps.cli.tag_colors:main"
+paperflow-rare-tags = "paperflow.apps.cli.rare_tags:main"
 paperflow-google-auth = "paperflow.apps.cli.google_auth:main"
 
 [tool.setuptools.packages.find]

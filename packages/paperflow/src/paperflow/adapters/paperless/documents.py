@@ -28,8 +28,11 @@ class PaperlessDocuments:
         for row in self._transport.paginate("/api/documents/", params={"fields": "id"}):
             yield int(row["id"])
 
-    def iter_summaries(self, fields: Sequence[str]) -> Iterator[DocumentSummary]:
-        """Walk the archive fetching only the fields named.
+    def iter_summaries(
+        self, fields: Sequence[str], *, filters: dict[str, Any] | None = None
+    ) -> Iterator[DocumentSummary]:
+        """Walk the archive - or the part of it matching `filters` - fetching only
+        the fields named.
 
         Far cheaper than fetching each document in full, which is what the
         duplicate finder would otherwise have to do.
@@ -43,7 +46,7 @@ class PaperlessDocuments:
         """
         wanted = list(fields)
         for row in self._transport.paginate(
-            "/api/documents/", params={"fields": ",".join(wanted)}
+            "/api/documents/", params={"fields": ",".join(wanted), **(filters or {})}
         ):
             yield DocumentSummary(
                 id=int(row["id"]),

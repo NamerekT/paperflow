@@ -52,6 +52,11 @@ class M(StrEnum):
     TAGCOLOR_SUMMARY_DRY_RUN = "tagcolor_summary_dry_run"
     TAGCOLOR_SUMMARY_APPLIED = "tagcolor_summary_applied"
 
+    # ── rare tags ─────────────────────────────────────────────────────────────
+    RARETAGS_COUNT = "raretags_count"
+    RARETAGS_TAG_LINE = "raretags_tag_line"
+    RARETAGS_DOC_LINE = "raretags_doc_line"
+
     # ── Google Tasks one-off consent flow ───────────────────────────────────
     GOOGLE_AUTH_USING_CLIENT = "google_auth_using_client"
     GOOGLE_AUTH_SAVED = "google_auth_saved"
