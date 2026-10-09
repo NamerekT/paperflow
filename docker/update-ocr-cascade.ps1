@@ -1,11 +1,11 @@
 # Builds ocr-cascade-webhook from the current working tree, tags it with the short
 # git sha (traceable, and never collides with a previous build the way :latest does),
-# pins that tag in ../../YAML/paperless-ngx/.env, and recreates ONLY that one
+# pins that tag in D:\Projects\YAML\paperless-ngx\.env, and recreates ONLY that one
 # container via --no-deps - the other three services in that compose file
 # (paperless-broker, paperless-db, paperless-webserver) are left untouched.
 #
 # Usage (from anywhere):
-#   pwsh D:\Projects\Automations\DocSorter\docker\update-ocr-cascade.ps1
+#   pwsh D:\Projects\git\repos\paperflow\docker\update-ocr-cascade.ps1
 #
 # Rollback: edit OCR_CASCADE_WEBHOOK_VERSION in D:\Projects\YAML\paperless-ngx\.env
 # back to an older sha (any tag still present in `docker images ocr-cascade-webhook`),
@@ -13,7 +13,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = "D:\Projects\Automations\DocSorter"
+$repoRoot = Split-Path $PSScriptRoot -Parent
 $composeDir = "D:\Projects\YAML\paperless-ngx"
 $envFile = "$composeDir\.env"
 

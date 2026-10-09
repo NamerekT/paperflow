@@ -4,7 +4,7 @@
 #
 #   docker build -f docker/service.Dockerfile -t ocr-cascade-webhook .
 #
-# (run from D:\Projects\Automations\DocSorter)
+# (run from D:\Projects\git\repos\paperflow)
 
 FROM python:3.11-slim
 
