@@ -24,6 +24,8 @@ from docflow.settings import LlmTaskConfig
 
 logger = logging.getLogger(__name__)
 
+_YEAR = re.compile(r"\d{4}")
+
 
 def _words(name: str) -> list[str]:
     return re.findall(r"\w+", name.casefold())
@@ -74,8 +76,9 @@ RULES:
   a more generic type like "Bescheid" or "Schreiben" just because it's also
   technically true; pick the MOST SPECIFIC existing type that fits.
 - tags: describe the SUBJECT/TOPIC of the document (e.g. "Bürgergeld",
-  "Miete", "Schule", "2026") - NOT who sent it (that's `correspondent`) and
-  NOT the kind of document (that's `document_type`). Do NOT add a tag that
+  "Miete", "Schule") - NOT who sent it (that's `correspondent`), NOT the
+  kind of document (that's `document_type`) and NOT a year (the document
+  date already records it). Do NOT add a tag that
   just repeats or aliases the correspondent's organization name (e.g. don't
   tag "Jobcenter" when correspondent is "Agentur für Arbeit
   (Inkasso-Service)" - besides being redundant, those are different
@@ -175,14 +178,14 @@ class ClassifyTask(LlmTask):
 
     @staticmethod
     def _topic_tags(raw_tags: list[str], correspondent: str, document_type: str) -> list[str]:
-        """Drop the tags that only repeat the sender or the kind of document.
+        """Drop the tags that only repeat the sender, the kind of document or its year.
 
         The prompt asks for this already and the model ignores it often enough to
-        matter: a tag equal to the document type, or naming the correspondent - in
-        full or by its leading words, "Jobcenter" beside "Jobcenter Musterstadt" -
-        adds nothing that cannot already be filtered on. A tag taken from the middle
-        of the name ("Kreis Musterstadt" beside "Jobcenter (Kreis Musterstadt)") is
-        a place, not the sender, and stays.
+        matter: a tag equal to the document type, a bare year, or naming the
+        correspondent - in full or by its leading words, "Jobcenter" beside
+        "Jobcenter Musterstadt" - adds nothing that cannot already be filtered on.
+        A tag taken from the middle of the name ("Kreis Musterstadt" beside
+        "Jobcenter (Kreis Musterstadt)") is a place, not the sender, and stays.
         """
         correspondent_words = _words(correspondent)
         kept: list[str] = []
@@ -193,6 +196,8 @@ class ClassifyTask(LlmTask):
             words = _words(tag)
             if tag.casefold() == document_type.strip().casefold():
                 logger.info(f"dropped tag {tag!r}: repeats the document type")
+            elif _YEAR.fullmatch(tag):
+                logger.info(f"dropped tag {tag!r}: a year, the document date has it")
             elif words and correspondent_words[: len(words)] == words:
                 logger.info(f"dropped tag {tag!r}: repeats the correspondent {correspondent!r}")
             else:

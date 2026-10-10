@@ -106,7 +106,7 @@ tags is under it any more. A `→ Target` tag whose target does not exist is lef
 
 Technical tags - the review parent, `→ ...` tags, and any tag with "Technical tag" in its name -
 are never shown to the classifier. A tag that only repeats the correspondent or the document
-type is dropped before the document is written.
+type, or is a bare year, is dropped before the document is written.
 
 ## Applications
 

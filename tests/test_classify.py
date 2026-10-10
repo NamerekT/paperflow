@@ -43,10 +43,21 @@ def test_topic_tags_are_kept_in_the_models_order():
         {
             "correspondent": "Krankenkasse Musterstadt",
             "document_type": "Bescheid",
-            "tags": ["Krankenversicherung", "2026"],
+            "tags": ["Krankenversicherung", "Zuzahlung"],
         }
     )
-    assert tags == ("Krankenversicherung", "2026", "Personal", "Sample")
+    assert tags == ("Krankenversicherung", "Zuzahlung", "Personal", "Sample")
+
+
+def test_a_year_tag_is_dropped():
+    tags = classify_tags(
+        {
+            "correspondent": "Krankenkasse Musterstadt",
+            "document_type": "Bescheid",
+            "tags": ["2026", "Krankenversicherung", " 1999 "],
+        }
+    )
+    assert tags == ("Krankenversicherung", "Personal", "Sample")
 
 
 def test_a_tag_repeating_the_document_type_is_dropped():
