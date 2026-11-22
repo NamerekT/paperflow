@@ -87,15 +87,17 @@ class OcrCascade:
                 any_local_kept = True
                 continue
 
-            lines = self._ocr.read_lines(page, dpi=self._render_dpi)
+            lines, lost_lines = self._keep_confident_lines(
+                page.number, self._ocr.read_lines(page, dpi=self._render_dpi)
+            )
             stats = _page_stats(lines)
             means.append(stats.mean if not stats.is_empty else 1.0)
             p10s.append(stats.p10 if not stats.is_empty else 1.0)
 
-            if self._escalation.should_escalate(stats.mean, stats.p10):
+            if self._escalation.should_escalate(stats.mean, stats.p10, lost_lines):
                 logger.info(
                     f"p.{page.number}: mean={stats.mean:.3f} p10={stats.p10:.3f} "
-                    "-> escalating to the vision model"
+                    f"lost={lost_lines} -> escalating to the vision model"
                 )
                 image_b64 = page.render_jpeg_b64(dpi=self._render_dpi, quality=self._jpeg_quality)
                 text, provider_label = self._vision.transcribe(image_b64)
@@ -119,6 +121,24 @@ class OcrCascade:
         return self._finish(
             page_texts, page_reports, means, p10s, any_escalated, any_local_kept
         )
+
+    def _keep_confident_lines(
+        self, page_number: int, lines: list[OcrLine]
+    ) -> tuple[list[OcrLine], int]:
+        """The lines at or above the policy's `line_score`, and how many of the dropped
+        ones carried text. The scores of the dropped lines go into the log, not their
+        text: it may be someone's name or account number."""
+        threshold = self._escalation.line_score
+        kept = [line for line in lines if line.score >= threshold]
+        dropped = [line for line in lines if line.score < threshold]
+        lost = [line for line in dropped if self._escalation.is_lost_text(line.text)]
+        if dropped:
+            scores = ", ".join(f"{line.score:.2f}" for line in dropped)
+            logger.info(
+                f"p.{page_number}: dropped {len(dropped)} line(s) below {threshold:.2f}, "
+                f"{len(lost)} of them with text (scores {scores})"
+            )
+        return kept, len(lost)
 
     @staticmethod
     def _finish(

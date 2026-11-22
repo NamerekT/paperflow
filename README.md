@@ -82,6 +82,12 @@ born-digital? (text layer present, and the page is not mostly a scanned image)
                                      escalate: render the page, ask a vision LLM
 ```
 
+"Good enough" means mean and 10th-percentile line confidence of at least 0.95
+(`PAPERFLOW_ESCALATE_MEAN`, `PAPERFLOW_ESCALATE_P10`), and no detected line with text that
+scored below 0.5 and was left out (`PAPERFLOW_ESCALATE_LOST_LINES`). The two language passes
+are merged by line position; a weak line is read again from its crop by both models, upright
+and turned over, because RapidOCR's angle classifier sometimes flips a straight line.
+
 A single Docker service (`docker/service.Dockerfile`) is the only place this cascade runs. The
 watcher and the nightly catch-up job are both thin: they only ever tell Paperless "a document
 exists" - the same webhook handles a scan, an email import, and a manual upload identically.

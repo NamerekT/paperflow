@@ -71,7 +71,28 @@ class EscalationPolicy:
     mean: float = 0.95
     p10: float = 0.95
 
-    def should_escalate(self, mean: float, p10: float) -> bool:
+    #: Lines the engine scored below this are left out of the page text and of `mean`
+    #: and `p10`. 0.5 is RapidOCR's own default `text_score`, which used to drop them
+    #: inside the engine, where nothing downstream could see that a line was lost.
+    line_score: float = 0.5
+
+    #: A dropped line with at least this many letters or digits was text the engine
+    #: failed to read. Below that it is what a fold, a stain or a rule line leaves.
+    lost_line_chars: int = 5
+
+    #: Escalate a page once this many dropped lines carried text, whatever its mean and
+    #: p10 are: those only describe the lines that were kept. A page losing one line of a
+    #: paragraph used to file at 99.8% confidence (PPF-16).
+    lost_lines: int = 1
+
+    def __post_init__(self) -> None:
+        if self.lost_lines < 1:
+            raise ValueError(f"lost_lines must be at least 1, got {self.lost_lines}")
+
+    def is_lost_text(self, text: str) -> bool:
+        return sum(ch.isalnum() for ch in text) >= self.lost_line_chars
+
+    def should_escalate(self, mean: float, p10: float, lost_lines: int = 0) -> bool:
         if mean != mean or p10 != p10:  # NaN: no lines were recognised at all
             return True
-        return mean < self.mean or p10 < self.p10
+        return mean < self.mean or p10 < self.p10 or lost_lines >= self.lost_lines

@@ -154,6 +154,46 @@ def test_confidence_and_accuracy_are_averaged_as_percentages():
     assert result.avg_accuracy_pct == 100.0
 
 
+def test_lines_below_the_line_score_are_left_out_of_the_text_and_the_scores():
+    doc = FakeDocument([FakePage(1)])
+    ocr = FakeOcr({1: [OcrLine(text="hallo welt", score=0.99), OcrLine(text="|.", score=0.2)]})
+    vision = FakeVision()
+
+    result = make_cascade(ocr, vision).run(doc)
+
+    assert result.content == "hallo welt"
+    assert result.avg_confidence_pct == 99.0
+    assert result.avg_accuracy_pct == 99.0
+    assert vision.calls == []
+
+
+def test_a_dropped_line_that_carries_text_escalates_a_confident_page(caplog):
+    lost = OcrLine(text="Das Ticket kann gedruckt werden", score=0.37)
+    doc = FakeDocument([FakePage(1)])
+    ocr = FakeOcr({1: [*good_lines() * 25, lost]})
+    vision = FakeVision()
+
+    with caplog.at_level("INFO", logger="docflow.pipeline.cascade"):
+        result = make_cascade(ocr, vision).run(doc)
+
+    assert vision.calls == ["jpeg-p1"]
+    assert result.content_by == ContentSource.VISION
+    assert "p.1: dropped 1 line(s) below 0.50, 1 of them with text" in caplog.text
+
+
+def test_dropped_lines_without_text_do_not_escalate(caplog):
+    doc = FakeDocument([FakePage(1)])
+    ocr = FakeOcr({1: [*good_lines(), OcrLine(text="| -", score=0.3), OcrLine(text="", score=0.0)]})
+    vision = FakeVision()
+
+    with caplog.at_level("INFO", logger="docflow.pipeline.cascade"):
+        result = make_cascade(ocr, vision).run(doc)
+
+    assert vision.calls == []
+    assert result.content == "hallo welt"
+    assert "p.1: dropped 2 line(s) below 0.50, 0 of them with text" in caplog.text
+
+
 def test_empty_document_produces_empty_result_with_no_averages():
     result = make_cascade(FakeOcr({})).run(FakeDocument([]))
 

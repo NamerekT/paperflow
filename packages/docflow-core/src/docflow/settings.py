@@ -192,5 +192,6 @@ class CascadeSettings:
             escalation=EscalationPolicy(
                 mean=env.number("PAPERFLOW_ESCALATE_MEAN", 0.95),
                 p10=env.number("PAPERFLOW_ESCALATE_P10", 0.95),
+                lost_lines=env.integer("PAPERFLOW_ESCALATE_LOST_LINES", 1),
             ),
         )

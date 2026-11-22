@@ -13,6 +13,7 @@ get wrong in production:
 | `test_llm_client.py` | Retry/error taxonomy of the model gateway client |
 | `test_native_text.py` | Born-digital detection, against fake pages |
 | `test_cascade.py` | The OCR escalation cascade, against fake pages and tasks |
+| `test_rapidocr_dual.py` | Re-reading lines the angle classifier flipped, merging the two language passes by line position, against fake engines |
 | `test_fitz_document.py` | The same detection against real PyMuPDF - skipped unless `test/data/` is present locally |
 | `test_document_processor.py` | The download/engine/resolve/write cycle, against fake Paperless adapters |
 | `test_classify.py` | Dropping tags that only repeat the correspondent or the document type |
