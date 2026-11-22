@@ -194,6 +194,36 @@ def test_dropped_lines_without_text_do_not_escalate(caplog):
     assert "p.1: dropped 2 line(s) below 0.50, 0 of them with text" in caplog.text
 
 
+def form_row(*cells, top=500):
+    return [
+        OcrLine(text=text, score=1.0, box=(100 + 300 * i, top, 220 + 300 * i, top + 40))
+        for i, text in enumerate(cells)
+    ]
+
+
+def test_bare_numbers_beside_amounts_escalate_a_confident_page(caplog):
+    doc = FakeDocument([FakePage(1)])
+    ocr = FakeOcr({1: [*good_lines() * 25, *form_row("A", "10000", "25000", "12,50")]})
+    vision = FakeVision()
+
+    with caplog.at_level("INFO", logger="docflow.pipeline.cascade"):
+        result = make_cascade(ocr, vision).run(doc)
+
+    assert vision.calls == ["jpeg-p1"]
+    assert result.content_by == ContentSource.VISION
+    assert "bare_numbers=2 -> escalating" in caplog.text
+
+
+def test_a_single_bare_number_beside_an_amount_does_not_escalate():
+    doc = FakeDocument([FakePage(1)])
+    ocr = FakeOcr({1: [*good_lines(), *form_row("1.", "123456", "Artikel", "12,50 €")]})
+    vision = FakeVision()
+
+    make_cascade(ocr, vision).run(doc)
+
+    assert vision.calls == []
+
+
 def test_empty_document_produces_empty_result_with_no_averages():
     result = make_cascade(FakeOcr({})).run(FakeDocument([]))
 

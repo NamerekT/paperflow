@@ -85,14 +85,29 @@ class EscalationPolicy:
     #: paragraph used to file at 99.8% confidence (PPF-16).
     lost_lines: int = 1
 
+    #: Escalate a page once this many bare whole numbers share a table row with an amount
+    #: written with a comma (`docflow.pipeline.amounts`): RapidOCR drops the comma of
+    #: amounts in form cells at a score of 1.0 (PPF-18). One such number is usually an
+    #: article or customer number in an invoice row, so one is not enough.
+    bare_numbers: int = 2
+
     def __post_init__(self) -> None:
         if self.lost_lines < 1:
             raise ValueError(f"lost_lines must be at least 1, got {self.lost_lines}")
+        if self.bare_numbers < 1:
+            raise ValueError(f"bare_numbers must be at least 1, got {self.bare_numbers}")
 
     def is_lost_text(self, text: str) -> bool:
         return sum(ch.isalnum() for ch in text) >= self.lost_line_chars
 
-    def should_escalate(self, mean: float, p10: float, lost_lines: int = 0) -> bool:
+    def should_escalate(
+        self, mean: float, p10: float, lost_lines: int = 0, bare_numbers: int = 0
+    ) -> bool:
         if mean != mean or p10 != p10:  # NaN: no lines were recognised at all
             return True
-        return mean < self.mean or p10 < self.p10 or lost_lines >= self.lost_lines
+        return (
+            mean < self.mean
+            or p10 < self.p10
+            or lost_lines >= self.lost_lines
+            or bare_numbers >= self.bare_numbers
+        )

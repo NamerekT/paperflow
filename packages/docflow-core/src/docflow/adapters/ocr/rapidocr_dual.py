@@ -283,4 +283,15 @@ class RapidOcrDualEngine:
             self._merge_best_per_line(latin_lines, eslav_lines), self._detect(img_bgr)
         )
         reread = [self._reread_if_weak(img_bgr, line) for line in merged]
-        return [OcrLine(text=line.text, score=line.score) for line in reread]
+        return [
+            OcrLine(text=line.text, score=line.score, box=self._rectangle(line.box))
+            for line in reread
+        ]
+
+    @staticmethod
+    def _rectangle(box: np.ndarray | None) -> tuple[float, float, float, float] | None:
+        if box is None:
+            return None
+        points = np.asarray(box, dtype=float)
+        (left, top), (right, bottom) = points.min(axis=0), points.max(axis=0)
+        return float(left), float(top), float(right), float(bottom)

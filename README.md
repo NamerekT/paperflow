@@ -83,10 +83,13 @@ born-digital? (text layer present, and the page is not mostly a scanned image)
 ```
 
 "Good enough" means mean and 10th-percentile line confidence of at least 0.95
-(`PAPERFLOW_ESCALATE_MEAN`, `PAPERFLOW_ESCALATE_P10`), and no detected line with text that
-scored below 0.5 and was left out (`PAPERFLOW_ESCALATE_LOST_LINES`). The two language passes
-are merged by line position; a weak line is read again from its crop by both models, upright
-and turned over, because RapidOCR's angle classifier sometimes flips a straight line.
+(`PAPERFLOW_ESCALATE_MEAN`, `PAPERFLOW_ESCALATE_P10`), no detected line with text that
+scored below 0.5 and was left out (`PAPERFLOW_ESCALATE_LOST_LINES`), and fewer than two bare
+whole numbers in a table row next to an amount with a decimal comma - RapidOCR reads `100,00`
+in a form cell as `10000` at full confidence (`PAPERFLOW_ESCALATE_BARE_NUMBERS`). The two
+language passes are merged by line position; a weak line is read again from its crop by both
+models, upright and turned over, because RapidOCR's angle classifier sometimes flips a
+straight line.
 
 A single Docker service (`docker/service.Dockerfile`) is the only place this cascade runs. The
 watcher and the nightly catch-up job are both thin: they only ever tell Paperless "a document

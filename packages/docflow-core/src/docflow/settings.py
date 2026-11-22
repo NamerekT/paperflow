@@ -193,5 +193,6 @@ class CascadeSettings:
                 mean=env.number("PAPERFLOW_ESCALATE_MEAN", 0.95),
                 p10=env.number("PAPERFLOW_ESCALATE_P10", 0.95),
                 lost_lines=env.integer("PAPERFLOW_ESCALATE_LOST_LINES", 1),
+                bare_numbers=env.integer("PAPERFLOW_ESCALATE_BARE_NUMBERS", 2),
             ),
         )

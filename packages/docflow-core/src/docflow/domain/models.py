@@ -31,6 +31,10 @@ class OcrLine:
     text: str
     score: float
 
+    #: (left, top, right, bottom) in pixels of the rendered page; None when the engine
+    #: does not report where the line is.
+    box: tuple[float, float, float, float] | None = None
+
 
 @dataclass(frozen=True, slots=True)
 class PageStats:

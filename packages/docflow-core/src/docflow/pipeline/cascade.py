@@ -17,6 +17,7 @@ import numpy as np
 from docflow.domain.models import CascadeResult, ContentSource, OcrLine, PageReport, PageStats
 from docflow.domain.policies import EscalationPolicy, NativeTextConfig
 from docflow.llm_tasks.vision_ocr import VisionOcrTask
+from docflow.pipeline.amounts import bare_numbers_beside_amounts
 from docflow.pipeline.native_text import extract_native_text, is_native_text_document
 from docflow.ports.ocr import PageOcr
 from docflow.ports.pdf import PdfDocument
@@ -91,13 +92,15 @@ class OcrCascade:
                 page.number, self._ocr.read_lines(page, dpi=self._render_dpi)
             )
             stats = _page_stats(lines)
+            bare_numbers = bare_numbers_beside_amounts(lines)
             means.append(stats.mean if not stats.is_empty else 1.0)
             p10s.append(stats.p10 if not stats.is_empty else 1.0)
 
-            if self._escalation.should_escalate(stats.mean, stats.p10, lost_lines):
+            if self._escalation.should_escalate(stats.mean, stats.p10, lost_lines, bare_numbers):
                 logger.info(
                     f"p.{page.number}: mean={stats.mean:.3f} p10={stats.p10:.3f} "
-                    f"lost={lost_lines} -> escalating to the vision model"
+                    f"lost={lost_lines} bare_numbers={bare_numbers} "
+                    "-> escalating to the vision model"
                 )
                 image_b64 = page.render_jpeg_b64(dpi=self._render_dpi, quality=self._jpeg_quality)
                 text, provider_label = self._vision.transcribe(image_b64)

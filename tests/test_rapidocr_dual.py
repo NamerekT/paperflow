@@ -111,6 +111,14 @@ def test_a_weak_line_only_one_pass_returned_is_read_again_by_the_other_pass_too(
     assert read(engine(latin, eslav)) == [("Дякуємо за вашу заяву", 0.96)]
 
 
+def test_lines_carry_their_bounding_rectangle_on_the_page():
+    latin = FakeRapidOcr(page=[(10, "Erste Zeile", 0.99)])
+
+    [line] = engine(latin).read_lines(FakePage(), dpi=300)
+
+    assert line.box == (20.0, 10.0, 220.0, 30.0)
+
+
 def test_a_confident_line_is_not_read_again():
     latin = FakeRapidOcr(page=[(10, "Erste Zeile", 0.99)])
 
