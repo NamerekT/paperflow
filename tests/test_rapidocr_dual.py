@@ -37,15 +37,25 @@ class FakePage:
 
 class FakeRapidOcr:
     """`page` is what the full det+cls+rec pipeline returns: [(top, text, score)].
-    `crops` is what recognition alone returns for a crop: {(top, upright): (text, score)}."""
+    `crops` is what recognition alone returns for a crop: {(top, upright): (text, score)}.
+    `detected` is the tops of the boxes detection alone finds; by default those of `page`,
+    i.e. no line was read as empty and dropped."""
 
-    def __init__(self, page, crops=None):
+    def __init__(self, page, crops=None, detected=None):
         self._page = page
         self._crops = crops or {}
+        self._detected = [top for top, _, _ in page] if detected is None else detected
         self.calls = []
 
     def __call__(self, img, **kwargs):
         self.calls.append(kwargs)
+        if kwargs.get("use_det") and not kwargs.get("use_rec"):
+            if not self._detected:
+                return SimpleNamespace(boxes=None, txts=None, scores=None)
+            return SimpleNamespace(
+                boxes=np.array([box(top) for top in self._detected]),
+                scores=tuple(0.8 for _ in self._detected),
+            )
         if kwargs.get("use_det"):
             return SimpleNamespace(
                 boxes=np.array([box(top) for top, _, _ in self._page]),
@@ -124,9 +134,12 @@ def test_every_call_sets_the_pipeline_flags_and_disables_the_engines_own_filter(
     read(dual)
     read(dual)
 
-    page_calls = [call for call in latin.calls if call.get("use_det")]
+    page_calls = [call for call in latin.calls if call.get("use_det") and call["use_rec"]]
+    detect_calls = [call for call in latin.calls if call.get("use_det") and not call["use_rec"]]
     assert len(page_calls) == 2
+    assert len(detect_calls) == 2
     assert all(call["use_cls"] and call["text_score"] == 0.0 for call in page_calls)
+    assert all(not call["use_cls"] for call in detect_calls)
     assert all(not call["use_cls"] and call["text_score"] == 0.0 for call in latin.crop_calls)
 
 
@@ -135,6 +148,21 @@ def test_passes_are_merged_by_line_position_and_the_more_confident_reading_wins(
     eslav = FakeRapidOcr(page=[(10, "Pechhyhg", 0.70), (50, "Решенко", 0.97)])
 
     assert read(engine(latin, eslav)) == [("Rechnung", 0.99), ("Решенко", 0.97)]
+
+
+def test_of_two_readings_with_the_same_letters_the_one_keeping_separators_wins():
+    """eslav tends to glue a Latin line together and still score it higher."""
+    latin = FakeRapidOcr(page=[(10, "8. Sonstiges", 0.94), (50, "01.02.25 3.5", 0.93)])
+    eslav = FakeRapidOcr(page=[(10, "8.Sonstiges", 0.99), (50, "01.022535", 0.99)])
+
+    assert read(engine(latin, eslav)) == [("8. Sonstiges", 0.94), ("01.02.25 3.5", 0.93)]
+
+
+def test_punctuation_at_the_edges_of_a_line_does_not_count_as_a_kept_separator():
+    latin = FakeRapidOcr(page=[(10, ".Weitere Hinweise", 0.95)])
+    eslav = FakeRapidOcr(page=[(10, "Weitere Hinweise", 0.99)])
+
+    assert read(engine(latin, eslav)) == [("Weitere Hinweise", 0.99)]
 
 
 def test_lines_only_one_pass_returned_appear_once_and_in_page_order():
@@ -147,3 +175,37 @@ def test_lines_only_one_pass_returned_appear_once_and_in_page_order():
         ("drei", 0.99),
         ("vier", 0.99),
     ]
+
+
+def test_a_box_both_passes_read_as_empty_is_read_again_in_its_place():
+    """RapidOCR drops a line whose recognised text is empty even with text_score=0, so a
+    line the classifier spoiled in both passes is missing from both results."""
+    latin = FakeRapidOcr(
+        page=[(10, "eins", 0.99), (90, "drei", 0.99)],
+        detected=[10, 50, 90],
+        crops={(50, False): ("Zeile auf dem Kopf", 0.97)},
+    )
+    eslav = FakeRapidOcr(
+        page=[(10, "eihs", 0.80), (90, "dpei", 0.80)],
+        crops={(50, True): ("Рядок", 0.60)},
+    )
+
+    assert read(engine(latin, eslav)) == [
+        ("eins", 0.99),
+        ("Zeile auf dem Kopf", 0.97),
+        ("drei", 0.99),
+    ]
+
+
+def test_a_box_no_engine_reads_is_returned_as_an_empty_line_with_score_zero():
+    """A fold, a stain or a rule line: the cascade drops it, logs it and does not count it
+    as lost text."""
+    latin = FakeRapidOcr(page=[(10, "eins", 0.99)], detected=[10, 50])
+
+    assert read(engine(latin)) == [("eins", 0.99), ("", 0.0)]
+
+
+def test_a_page_detection_finds_nothing_on_reads_as_no_lines():
+    latin = FakeRapidOcr(page=[], detected=[])
+
+    assert read(engine(latin)) == []

@@ -9,7 +9,8 @@ misreadings into otherwise correct German text, so instead the merge below
 picks, line by line, whichever pass the engine itself was more confident
 about - see `_merge_best_per_line`.
 
-Every detected line is returned, however low its score: dropping weak lines is the
+Every detected line is returned, however low its score - including a box both passes
+read as empty, which RapidOCR itself drops (see `_detect`): dropping weak lines is the
 cascade's decision (`EscalationPolicy.line_score`), so that a lost line can count
 against the page instead of vanishing inside the engine.
 """
@@ -141,6 +142,22 @@ class RapidOcrDualEngine:
             ]
         return []
 
+    def _detect(self, img: np.ndarray) -> list[_Line]:
+        """Every box the detector finds, as an empty line with score 0. RapidOCR drops a
+        line whose recognised text is empty even with text_score=0, so a line the angle
+        classifier spoiled in both passes would leave no trace without this; merged with
+        the passes, such a box stays in as a weak line and is read again from its crop.
+        Both engines run the same detection model, so one of them is enough."""
+        result = self._engine_latin(
+            img, use_det=True, use_cls=False, use_rec=False, text_score=0.0
+        )
+        if isinstance(result, tuple):
+            result = result[0]
+        boxes = getattr(result, "boxes", None)
+        if boxes is None:
+            return []
+        return [_Line("", 0.0, np.asarray(b)) for b in boxes]
+
     @staticmethod
     def _read_pass(engine: Any, img: np.ndarray) -> list[_Line]:
         """One full pass over the page. RapidOCR keeps call arguments as engine state, so
@@ -185,7 +202,7 @@ class RapidOcrDualEngine:
     @staticmethod
     def _merge_best_per_line(latin: list[_Line], eslav: list[_Line]) -> list[_Line]:
         """Pairs the two passes' lines by where they are on the page and keeps, per pair,
-        the reading the engine was more confident about, instead of concatenating both
+        the better reading (`_better_reading`), instead of concatenating both
         texts one after the other. A line only one pass returned (the other read it as
         empty) is kept once, in its place in the reading order."""
         match: dict[int, int] = {}
@@ -217,9 +234,32 @@ class RapidOcrDualEngine:
                 continue
             flush_gap(pair)
             next_eslav = max(next_eslav, pair + 1)
-            merged.append(lt if lt.score >= eslav[pair].score else eslav[pair])
+            merged.append(RapidOcrDualEngine._better_reading(lt, eslav[pair]))
         flush_gap(len(eslav))
         return merged
+
+    @staticmethod
+    def _better_reading(a: _Line, b: _Line) -> _Line:
+        """The more confident reading - unless both read the same letters and digits and
+        one of them lost spaces or dots between them: eslav glues a Latin line such as a
+        date followed by an amount into one word and still scores it higher. Punctuation
+        at the edges of a line is left out of the count, it is usually a speck."""
+
+        def letters(text: str) -> str:
+            return "".join(ch for ch in text if ch.isalnum())
+
+        def inner_separators(text: str) -> int:
+            alnum = [i for i, ch in enumerate(text) if ch.isalnum()]
+            if not alnum:
+                return 0
+            inner = text[alnum[0] : alnum[-1] + 1]
+            return len(inner) - len(letters(inner))
+
+        if letters(a.text) == letters(b.text):
+            sep_a, sep_b = inner_separators(a.text), inner_separators(b.text)
+            if sep_a != sep_b:
+                return a if sep_a > sep_b else b
+        return a if a.score >= b.score else b
 
     @staticmethod
     def _in_reading_order(lines: list[_Line]) -> list[_Line]:
@@ -239,6 +279,8 @@ class RapidOcrDualEngine:
         img_bgr = page.render_bgr(dpi=dpi)
         latin_lines = self._read_pass(self._engine_latin, img_bgr)
         eslav_lines = self._read_pass(self._engine_eslav, img_bgr)
-        merged = self._merge_best_per_line(latin_lines, eslav_lines)
+        merged = self._merge_best_per_line(
+            self._merge_best_per_line(latin_lines, eslav_lines), self._detect(img_bgr)
+        )
         reread = [self._reread_if_weak(img_bgr, line) for line in merged]
         return [OcrLine(text=line.text, score=line.score) for line in reread]
