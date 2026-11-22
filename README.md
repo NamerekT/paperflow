@@ -194,6 +194,14 @@ rewritten roughly once an hour, and a read-only mount turns that into a silent f
 keep working right up until the first token expiry and then stop without an error visible
 anywhere but the refresh attempt itself.
 
+`/data` must be a volume that outlives the container. Besides the progress log it holds the queue:
+a webhook is answered 202 before its document is processed, so every accepted job is a file in
+`/data/queue` (`CASCADE_QUEUE_DIR`) until it has run, and a new container takes up what is left,
+oldest first. A job the process died on three times is dropped with an `error` line in the
+progress log. `/healthz` reports `pending` (queued plus in progress), and
+`docker/update-ocr-cascade.ps1` waits for it to reach 0 (at most `-WaitSeconds`, 30 minutes by
+default) before it recreates the container.
+
 ## Rakes we've already stepped on
 
 Short version here; full reasoning lives in the relevant module's comments/docstrings.

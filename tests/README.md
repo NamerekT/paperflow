@@ -18,6 +18,7 @@ get wrong in production:
 | `test_classify.py` | Dropping tags that only repeat the correspondent or the document type |
 | `test_tag_review.py` | New tags going under the review parent, and `→ Target` merges, against fake adapters |
 | `test_rare_tags.py` | Which tags the `paperflow-rare-tags` report includes |
+| `test_queue_journal.py` | The worker's queue on disk: jobs surviving a restart, a crashing job dropped |
 
 Run with `pytest` from the repository root.
 

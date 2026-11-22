@@ -241,6 +241,7 @@ def test_the_worker_runs_reviews_and_cascade_jobs_in_arrival_order(tmp_path):
 
     class StubSettings:
         progress_path = tmp_path / "progress.jsonl"
+        queue_dir = tmp_path / "queue"
 
     worker = QueueWorker(RecordingProcessor(), FailingThenRecordingReviewer(), StubSettings())
     worker.enqueue_tag_review(1)

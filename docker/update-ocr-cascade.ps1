@@ -16,10 +16,17 @@
 # still present in `docker images ocr-cascade-webhook` on the server) back into
 # OCR_CASCADE_WEBHOOK_VERSION and run `docker compose up -d --no-deps
 # ocr-cascade-webhook` in the stack folder.
+#
+# Before the switch the script waits until the running service reports no pending jobs
+# (`pending` in /healthz), at most -WaitSeconds, so a document is not cut off halfway
+# through its OCR. After the timeout it switches anyway: the queue is kept on disk in
+# the /data volume and the new container takes it up at start. An image older than
+# that field reports nothing and is not waited for.
 
 param(
     [string]$SshHost = $env:PAPERFLOW_DEPLOY_HOST,
-    [string]$StackDir = $env:PAPERFLOW_DEPLOY_STACK_DIR
+    [string]$StackDir = $env:PAPERFLOW_DEPLOY_STACK_DIR,
+    [int]$WaitSeconds = 1800
 )
 
 $ErrorActionPreference = "Stop"
@@ -52,6 +59,18 @@ if ($LASTEXITCODE -ne 0) { throw "docker build failed" }
 $remote = @"
 set -e
 cd '$StackDir'
+waited=0
+while :; do
+    pending=`$(docker exec ocr-cascade-webhook python -c 'import json, os, urllib.request; url = "http://127.0.0.1:%s/healthz" % os.environ.get("WEBHOOK_PORT", "8000"); print(json.load(urllib.request.urlopen(url, timeout=10)).get("pending", 0))' 2>/dev/null || echo 0)
+    [ "`$pending" = 0 ] && break
+    if [ "`$waited" -ge $WaitSeconds ]; then
+        echo "still `$pending job(s) after `${waited}s - switching anyway, the new container resumes them"
+        break
+    fi
+    echo "waiting for the queue to drain: `$pending job(s) pending"
+    sleep 15
+    waited=`$((waited + 15))
+done
 echo "previous: `$(grep '^OCR_CASCADE_WEBHOOK_VERSION=' .env)"
 cp -n .env ".env.bak-`$(date +%Y%m%d)"
 sed -i 's/^OCR_CASCADE_WEBHOOK_VERSION=.*/OCR_CASCADE_WEBHOOK_VERSION=$sha/' .env

@@ -102,7 +102,9 @@ async def receive_tag_review(
 
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
+def healthz() -> dict[str, Any]:
+    """`pending` - jobs accepted but not finished; the deploy script waits for 0."""
     if not getattr(app.state, "ready", False):
         raise HTTPException(status_code=503, detail="not ready")
-    return {"status": "ok"}
+    context: ServiceContext = app.state.context
+    return {"status": "ok", "pending": context.worker.pending()}

@@ -157,6 +157,10 @@ class ServiceSettings:
 
     progress_path: Path = Path("/data/cascade_progress.jsonl")
 
+    #: Accepted jobs not yet finished, one file each; must sit on a volume that
+    #: outlives the container, or a redeploy loses the queue.
+    queue_dir: Path = Path("/data/queue")
+
     @classmethod
     def from_env(cls, env: EnvReader) -> "ServiceSettings":
         return cls(
@@ -166,6 +170,7 @@ class ServiceSettings:
             progress_path=Path(
                 env.optional("CASCADE_PROGRESS_FILE", "/data/cascade_progress.jsonl")
             ),
+            queue_dir=Path(env.optional("CASCADE_QUEUE_DIR", "/data/queue")),
         )
 
 
