@@ -5,7 +5,7 @@ a reopened file gets new keys, so in a long-running service the store grew by ro
 the decoded size of every document until it hit its cap (PPF-9).
 """
 
-import fitz
+import pymupdf
 import pytest
 
 from docflow.adapters.pdf.fitz_document import FitzDocument
@@ -13,8 +13,8 @@ from docflow.adapters.pdf.fitz_document import FitzDocument
 
 def test_close_empties_the_mupdf_store(monkeypatch: pytest.MonkeyPatch) -> None:
     shrinks: list[int] = []
-    monkeypatch.setattr(fitz.TOOLS, "store_shrink", lambda percent: shrinks.append(percent))
-    source = fitz.open()
+    monkeypatch.setattr(pymupdf.TOOLS, "store_shrink", lambda percent: shrinks.append(percent))
+    source = pymupdf.open()
     source.new_page()
 
     FitzDocument(source).close()
@@ -27,8 +27,8 @@ def test_close_empties_the_store_even_if_closing_the_document_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     shrinks: list[int] = []
-    monkeypatch.setattr(fitz.TOOLS, "store_shrink", lambda percent: shrinks.append(percent))
-    source = fitz.open()
+    monkeypatch.setattr(pymupdf.TOOLS, "store_shrink", lambda percent: shrinks.append(percent))
+    source = pymupdf.open()
     source.close()
 
     with pytest.raises(ValueError):

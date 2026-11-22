@@ -1,4 +1,4 @@
-"""The one `docflow.ports.pdf` implementation: PyMuPDF (fitz).
+"""The one `docflow.ports.pdf` implementation: PyMuPDF.
 
 Absorbs the three private renderers that used to live beside the pipeline
 itself - `_render_page_jpeg_b64` and `_page_to_bgr` from `ocr_cascade.py` and
@@ -13,14 +13,14 @@ import base64
 from collections.abc import Iterator
 from pathlib import Path
 
-import fitz  # PyMuPDF
 import numpy as np
+import pymupdf
 
 
 class FitzPageHandle:
-    """A `docflow.ports.pdf.PageHandle` backed by a `fitz.Page`."""
+    """A `docflow.ports.pdf.PageHandle` backed by a `pymupdf.Page`."""
 
-    def __init__(self, page: fitz.Page, number: int) -> None:
+    def __init__(self, page: pymupdf.Page, number: int) -> None:
         self._page = page
         self.number = number
 
@@ -37,9 +37,9 @@ class FitzPageHandle:
                 total += float(abs(rect))
         return total / page_area
 
-    def _pixmap(self, dpi: int) -> fitz.Pixmap:
+    def _pixmap(self, dpi: int) -> pymupdf.Pixmap:
         zoom = dpi / 72
-        return self._page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csRGB)
+        return self._page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), colorspace=pymupdf.csRGB)
 
     def render_jpeg_b64(self, *, dpi: int, quality: int) -> str:
         pix = self._pixmap(dpi)
@@ -52,9 +52,9 @@ class FitzPageHandle:
 
 
 class FitzDocument:
-    """A `docflow.ports.pdf.PdfDocument` backed by a `fitz.Document`."""
+    """A `docflow.ports.pdf.PdfDocument` backed by a `pymupdf.Document`."""
 
-    def __init__(self, document: fitz.Document) -> None:
+    def __init__(self, document: pymupdf.Document) -> None:
         self._document = document
 
     @property
@@ -76,11 +76,11 @@ class FitzDocument:
         try:
             self._document.close()
         finally:
-            fitz.TOOLS.store_shrink(100)
+            pymupdf.TOOLS.store_shrink(100)
 
 
 class FitzOpener:
     """A `docflow.ports.pdf.PdfOpener` backed by PyMuPDF."""
 
     def open(self, path: str | Path) -> FitzDocument:
-        return FitzDocument(fitz.open(str(path)))
+        return FitzDocument(pymupdf.open(str(path)))

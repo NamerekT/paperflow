@@ -59,8 +59,8 @@ from paperflow.i18n.keys import M
 from paperflow.settings import Settings
 
 try:
-    import fitz
     import imagehash
+    import pymupdf
     from PIL import Image
 
     _HAS_IMAGE_DEPS = True
@@ -107,7 +107,7 @@ def _jaccard(a: set[Any], b: set[Any]) -> float:
 def _pdf_page_hashes(path: Path, max_pages: int) -> list[Any]:
     hashes = []
     try:
-        with fitz.open(path) as doc:
+        with pymupdf.open(path) as doc:
             for i in range(min(max_pages, doc.page_count)):
                 pix = doc[i].get_pixmap()
                 image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)

@@ -23,7 +23,7 @@ llm = [
     "pydantic>=2.7",
 ]
 pdf = [
-    "pymupdf>=1.24",
+    "pymupdf>=1.24.3",
 ]
 ocr = [
     "docflow-core[pdf]",

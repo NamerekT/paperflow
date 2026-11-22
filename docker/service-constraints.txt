@@ -1,7 +1,8 @@
 # Exact versions for docker/service.Dockerfile, passed to pip as constraints (-c).
-# Taken from `pip freeze` of the deployed image ocr-cascade-webhook:5a4f4f5. Without them
-# the pyproject lower bounds let every rebuild pull the newest release of the whole stack
-# (PyMuPDF 2.x included). Bump a version here on purpose, then rebuild and re-test.
+# Taken from `pip freeze` of the deployed image ocr-cascade-webhook:5a4f4f5, with PyMuPDF
+# raised to 2.1 and its new dependencies added (PPF-14). Without them the pyproject lower
+# bounds let every rebuild pull the newest release of the whole stack. Bump a version here
+# on purpose, then rebuild and re-test.
 # Regenerate: docker run --rm --entrypoint pip <image> freeze | grep -v ' @ file:'
 
 annotated-doc==0.0.5
@@ -25,6 +26,7 @@ h11==0.16.0
 httplib2==0.32.0
 httptools==0.9.0
 idna==3.20
+networkx==3.6.1
 numpy==2.4.6
 oauthlib==4.0.0
 omegaconf==2.4.0
@@ -35,13 +37,16 @@ packaging==26.3
 pillow==12.3.0
 proto-plus==1.29.0
 protobuf==7.36.2
+psutil==7.2.2
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pyclipper==1.4.0
 pycparser==3.11
 pydantic==2.14.0
 pydantic_core==2.50.0
-pymupdf==1.28.2
+pymupdf==2.1
+pymupdf4llm==2.1
+pymupdf_layout==2.1
 pyparsing==3.3.3
 python-dotenv==1.2.4
 PyYAML==6.0.3
@@ -51,6 +56,7 @@ requests-oauthlib==2.0.0
 shapely==2.2.0
 six==1.17.0
 starlette==1.7.0
+tabulate==0.10.0
 tqdm==4.70.1
 typing-inspection==0.4.4
 typing_extensions==4.16.0

@@ -80,7 +80,6 @@ strict = true
 
 [[tool.mypy.overrides]]
 module = [
-    "fitz.*",
     "rapidocr.*",
     "rapidocr_onnxruntime.*",
     "onnxruntime.*",
@@ -91,6 +90,12 @@ module = [
     "google.auth.*",
 ]
 ignore_missing_imports = true
+
+# pymupdf ships py.typed, but most of its functions carry no annotations, so strict mode
+# rejects every call into it. Treat it as untyped, as the old `fitz` alias was.
+[[tool.mypy.overrides]]
+module = ["pymupdf.*"]
+follow_imports = "skip"
 
 # numpy's own bundled stubs use PEP 695 `type` statements, which mypy can only parse
 # under python_version >= 3.12 - a type-checking-only requirement numpy added that has

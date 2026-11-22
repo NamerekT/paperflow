@@ -33,7 +33,7 @@ service = [
     "google-auth-oauthlib>=1.2",
 ]
 tools = [
-    "pymupdf>=1.24",
+    "pymupdf>=1.24.3",
     "imagehash>=4.3",
     "Pillow>=10.0",
     # find_duplicates and set_tag_colors need only requests (a base dependency) and,
