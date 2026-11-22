@@ -171,6 +171,76 @@ def test_an_unexpected_upload_error_does_not_leave_the_document_silent(tmp_path,
     assert recorded_toasts[0][0] == "Upload failed"
 
 
+def make_queued_scan(settings: WatcherSettings) -> Path:
+    path = settings.queue_folder / "scan_0001.pdf"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"%PDF-1.7 fake")
+    return path
+
+
+def test_a_failed_archive_retries_only_the_move_not_the_upload(
+    tmp_path, recorded_toasts, monkeypatch
+):
+    settings = make_settings(tmp_path)
+    path = make_queued_scan(settings)
+    documents = FakeDocuments()
+    real_archive = watcher_main.archive_local_copy
+
+    def locked_archive(src, filename, settings):
+        raise PermissionError("file is in use by another process")
+
+    monkeypatch.setattr(watcher_main, "archive_local_copy", locked_archive)
+    assert watcher_main.upload_pdf(path, documents, settings) is None
+    assert watcher_main.upload_pdf(path, documents, settings) is None
+    assert path.exists()
+
+    monkeypatch.setattr(watcher_main, "archive_local_copy", real_archive)
+    result = watcher_main.upload_pdf(path, documents, settings)
+
+    assert documents.uploaded == [path]
+    assert result == ("task-123", "scan_0001.pdf")
+    assert (settings.archive_folder / "scan_0001.pdf").exists()
+    assert list(settings.queue_folder.iterdir()) == []
+
+
+def test_the_accepted_upload_survives_a_watcher_restart(tmp_path, monkeypatch):
+    settings = make_settings(tmp_path)
+    path = make_queued_scan(settings)
+
+    def locked_archive(src, filename, settings):
+        raise PermissionError("file is in use by another process")
+
+    monkeypatch.setattr(watcher_main, "archive_local_copy", locked_archive)
+    watcher_main.upload_pdf(path, FakeDocuments(), settings)
+    monkeypatch.undo()
+
+    # A fresh process: nothing in memory, only what the queue folder holds.
+    after_restart = FakeDocuments()
+    worker = QueueWorker(
+        ScanQueue(settings),
+        settings,
+        upload=lambda p: watcher_main.upload_pdf(p, after_restart, settings),
+        finish=lambda task_id, name: None,
+    )
+    worker._drain()
+
+    assert after_restart.uploaded == []
+    assert (settings.archive_folder / "scan_0001.pdf").exists()
+
+
+def test_queue_numbering_skips_a_number_still_held_by_an_upload_marker(tmp_path):
+    settings = make_settings(tmp_path)
+    queue = ScanQueue(settings)
+    settings.queue_folder.mkdir(parents=True)
+    (settings.queue_folder / "scan_0003.pdf.uploaded").write_text("task-123")
+
+    src = tmp_path / "new.pdf"
+    src.write_bytes(b"z")
+    queued = queue.enqueue(src)
+
+    assert queued.name == "scan_0004.pdf"
+
+
 # ── autonomy: queueing must not depend on Paperless being up ────────────────
 
 

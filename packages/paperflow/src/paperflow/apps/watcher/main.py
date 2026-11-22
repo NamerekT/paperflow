@@ -30,7 +30,7 @@ from paperflow.adapters.paperless.transport import PaperlessTransport
 from paperflow.adapters.startup import startup_step_with_retry
 from paperflow.adapters.windows.toast import send_toast
 from paperflow.apps.watcher.observer import ScanHandler
-from paperflow.apps.watcher.queue import ScanQueue
+from paperflow.apps.watcher.queue import ScanQueue, upload_marker
 from paperflow.apps.watcher.worker import QueueWorker
 from paperflow.errors import PaperlessError, PaperlessUnavailable, TaskFailed, TaskTimeout
 from paperflow.i18n import set_locale, t
@@ -114,19 +114,59 @@ def upload_pdf(
     Errors reaching Paperless at all get one long pause on top of leaving the file
     queued - the alternative is a log flooded with a connection attempt every couple of
     seconds for as long as the archive is down.
+
+    Once Paperless has accepted the file, its task id goes into an upload marker, so a
+    failed move into the archive (a file held open on Windows) is retried on its own on
+    later passes - and after a restart - instead of uploading the document again.
+    """
+    name = path.name
+    marker = upload_marker(path)
+    task_id = _upload_once(path, marker, documents)
+    if task_id is None:
+        return None
+
+    # Always the queue name, not Paperless's assigned title: fetching it would mean
+    # waiting on the same consume step this function exists to not block on, and at
+    # that point in the pipeline the title is still whatever Paperless defaulted to
+    # pre-classification anyway - classification runs later, out of process.
+    try:
+        archived = archive_local_copy(path, name, settings)
+    except Exception:
+        # No toast: the document is in Paperless already, and this retries every pass.
+        logger.error(f"{name} is uploaded but could not be moved to the backup", exc_info=True)
+        logger.warning("only the move will be retried.")
+        return None
+    logger.info(f"local backup: {archived}")
+
+    try:
+        marker.unlink(missing_ok=True)
+    except OSError:
+        logger.warning(f"could not remove {marker.name}", exc_info=True)
+    return task_id, name
+
+
+def _upload_once(path: Path, marker: Path, documents: PaperlessDocuments) -> str | None:
+    """The Paperless task id for `path`: from its upload marker, or from a fresh upload.
+
+    None if the upload failed and the file should stay queued for a retry.
     """
     name = path.name
     try:
+        if marker.exists():
+            task_id = marker.read_text(encoding="utf-8").strip()
+            logger.info(f"{name} is already in Paperless (task {task_id}); moving it only")
+            return task_id
+
         task_id = documents.upload(path)
         logger.info(f"uploaded to Paperless (task {task_id})")
-
-        # Always the queue name, not Paperless's assigned title: fetching it would mean
-        # waiting on the same consume step this function exists to not block on, and at
-        # that point in the pipeline the title is still whatever Paperless defaulted to
-        # pre-classification anyway - classification runs later, out of process.
-        archived = archive_local_copy(path, name, settings)
-        logger.info(f"local backup: {archived}")
-        return task_id, name
+        try:
+            marker.write_text(task_id, encoding="utf-8")
+        except OSError:
+            logger.warning(
+                f"could not write {marker.name}; a failed move would upload it again",
+                exc_info=True,
+            )
+        return task_id
 
     except PaperlessUnavailable as exc:
         logger.error(f"no connection to Paperless: {exc}")

@@ -15,6 +15,16 @@ from paperflow.settings import WatcherSettings
 logger = logging.getLogger(__name__)
 
 
+def upload_marker(path: Path) -> Path:
+    """Sidecar next to a queued scan that Paperless has already accepted.
+
+    Holds the Paperless task id. Its presence means only the move into the archive is
+    left, so a retry - including one after a restart - must not upload the file again.
+    The `.uploaded` suffix keeps it out of `pending()`.
+    """
+    return path.with_name(path.name + ".uploaded")
+
+
 class ScanQueue:
     def __init__(self, settings: WatcherSettings) -> None:
         self._settings = settings
@@ -44,9 +54,11 @@ class ScanQueue:
     def _next_number(self) -> int:
         """The next sequential number. Call only while holding `_lock`."""
         highest = 0
-        for existing in self._settings.queue_folder.glob("scan_*.pdf"):
+        # Upload markers count too: a marker left behind by a failed cleanup must never
+        # end up describing a different scan that reused its number.
+        for existing in self._settings.queue_folder.glob("scan_*"):
             try:
-                number = int(existing.stem.split("_", 1)[1])
+                number = int(existing.name.split(".", 1)[0].split("_", 1)[1])
             except (IndexError, ValueError):
                 continue
             highest = max(highest, number)
