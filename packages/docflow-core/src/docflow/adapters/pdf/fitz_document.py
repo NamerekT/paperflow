@@ -66,7 +66,17 @@ class FitzDocument:
             yield FitzPageHandle(page, number)
 
     def close(self) -> None:
-        self._document.close()
+        """Close the document and empty MuPDF's process-wide store.
+
+        The store caches decoded page images and fonts and outlives the document; a
+        reopened file gets new keys, so without this a long-running service grew by
+        about the decoded size of every document until the store's 256 MB cap (PPF-9).
+        Documents are processed one at a time, so nothing useful is lost.
+        """
+        try:
+            self._document.close()
+        finally:
+            fitz.TOOLS.store_shrink(100)
 
 
 class FitzOpener:
