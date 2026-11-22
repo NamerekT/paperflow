@@ -6,7 +6,22 @@
 #
 # (run from the repository root)
 
-FROM python:3.11-slim
+# The base is pinned by digest and apt reads a dated snapshot.debian.org, so a rebuild
+# gets the same Python and the same Debian packages as the deployed image (5a4f4f5):
+# the digest alone is not enough - `apt-get install` against the live mirror also
+# upgrades libraries already in the base (libexpat1 and the like).
+#
+# Moving the base forward (Debian point releases and deb13uN security fixes land here)
+# is a deliberate change, done together:
+#   1. docker pull python:3.11-slim, take its digest
+#      (docker image inspect --format '{{index .RepoDigests 0}}' python:3.11-slim);
+#   2. set DEBIAN_SNAPSHOT to a moment at or after that image's build time
+#      (its /etc/apt/sources.list.d/debian.sources names the snapshot it was built on);
+#   3. build with --no-cache, compare `python --version` and `dpkg-query -W` with the
+#      deployed image, process a sample scan, deploy.
+FROM python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+
+ARG DEBIAN_SNAPSHOT=20261010T000000Z
 
 WORKDIR /app
 
@@ -20,7 +35,17 @@ WORKDIR /app
 # which is not installed either, so the real error (missing system libraries) shows up
 # disguised as "ModuleNotFoundError: rapidocr_onnxruntime". Confirmed by reproducing it
 # in a clean python:3.11-slim.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+#
+# The grep fails the build if a new base lists its mirrors differently and the sed missed
+# one - apt would otherwise quietly install from the live mirror. A snapshot's Release
+# files expire like the live ones do, hence Check-Valid-Until=false; the signatures are
+# still checked.
+RUN sed -i -E \
+        "s#^URIs: http://deb.debian.org/(debian(-security)?)\$#URIs: https://snapshot.debian.org/archive/\1/${DEBIAN_SNAPSHOT}#" \
+        /etc/apt/sources.list.d/debian.sources \
+    && ! grep -q '^URIs:.*deb\.debian\.org' /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::Check-Valid-Until=false update \
+    && apt-get install -y --no-install-recommends \
         libgl1 \
         libglib2.0-0 \
         libsm6 \

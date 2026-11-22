@@ -179,6 +179,12 @@ versions of the deployed image `ocr-cascade-webhook:5a4f4f5` with PyMuPDF raised
 newest release of the whole stack. Upgrading a package is a deliberate edit of that file followed
 by a rebuild and a re-test; a new dependency the upgrade brings in gets its own line there too.
 
+The system layer is pinned the same way: `FROM python:3.11-slim@sha256:...` fixes Python and the
+base's Debian packages, and `apt-get` reads snapshot.debian.org at the date in `DEBIAN_SNAPSHOT`
+instead of the live mirror, so the graphics libraries below and their dependencies do not drift
+either. Debian security fixes (`deb13uN`) reach the image only when both are moved forward
+together - the steps are at the top of the Dockerfile.
+
 Real build gotcha, worth knowing before re-deriving it the hard way: `rapidocr` depends on
 `opencv-python` (not the headless build), which needs system graphics libraries that a minimal
 `python:3.11-slim` doesn't have. Without them, the import fails with `ImportError:
