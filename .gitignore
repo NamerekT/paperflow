@@ -29,7 +29,8 @@ venv/
 .ruff_cache/
 
 # IDEs
-.claude/
+.claude/*
+!.claude/settings.json
 BUSINESS_PLAN.md
 IDEAS.md
 tests/Test File.pdf
