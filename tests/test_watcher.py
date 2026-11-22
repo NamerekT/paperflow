@@ -302,10 +302,17 @@ def test_the_worker_queues_but_does_not_upload_until_paperless_answers(tmp_path)
     uploaded: list[Path] = []
     ready = threading.Event()
 
+    def upload(path: Path) -> tuple[str, str]:
+        # The real upload moves the scan out of the queue; without that the
+        # worker picks the same file up again on its next pass.
+        uploaded.append(path)
+        path.unlink()
+        return "task-1", path.name
+
     worker = QueueWorker(
         ScanQueue(settings),
         settings,
-        upload=lambda path: (uploaded.append(path), ("task-1", path.name))[1],
+        upload=upload,
         finish=lambda task_id, name: None,
         paperless_ready=ready,
     )
