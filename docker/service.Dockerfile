@@ -30,10 +30,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Both distributions, installed from the local source tree rather than PyPI - this image
 # is the only consumer that needs them built, and there is nothing published to install
-# from instead.
+# from instead. The constraints file pins every third-party version, so a rebuild for a
+# one-line fix does not also upgrade the whole stack.
+COPY docker/service-constraints.txt /tmp/service-constraints.txt
 COPY packages/docflow-core/ ./packages/docflow-core/
 COPY packages/paperflow/ ./packages/paperflow/
-RUN pip install --no-cache-dir ./packages/docflow-core "./packages/paperflow[service]"
+RUN pip install --no-cache-dir -c /tmp/service-constraints.txt \
+        ./packages/docflow-core "./packages/paperflow[service]"
 
 # The latin and eslav recognition models are not in the rapidocr wheel - without this
 # step they are downloaded when the first document arrives after every deploy.

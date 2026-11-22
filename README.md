@@ -173,6 +173,12 @@ The webhook service is the only containerized piece:
 docker build -f docker/service.Dockerfile -t paperflow-service .
 ```
 
+The image installs its third-party packages under `docker/service-constraints.txt`, the exact
+versions of the deployed image `ocr-cascade-webhook:5a4f4f5`. The `pyproject.toml` files keep
+only lower bounds, so without that file every rebuild would pull the newest release of the whole
+stack. Upgrading a package (PyMuPDF 2.x, for example) is a deliberate edit of that file followed
+by a rebuild and a re-test.
+
 Real build gotcha, worth knowing before re-deriving it the hard way: `rapidocr` depends on
 `opencv-python` (not the headless build), which needs system graphics libraries that a minimal
 `python:3.11-slim` doesn't have. Without them, the import fails with `ImportError:
